@@ -628,7 +628,7 @@ function Get-HardwareAge {
     elseif ($ramGB -lt 16) { $ramEst="JUSTA"; $ramMsg="8 GB alcanza justo. Conviene llegar a 16 GB" }
     elseif ($ramGB -lt 32) { $ramEst="BUENA"; $ramMsg="16 GB esta bien para la mayoria de usos" }
     else { $ramEst="SOBRADA"; $ramMsg="32 GB o mas es suficiente para cualquier uso" }
-    if ($ramMhz -gt 0 -and $ramMhz -le 1600) { $ramMsg += " (velocidad baja — plataforma vieja)" }
+    if ($ramMhz -gt 0 -and $ramMhz -le 1600) { $ramMsg += " (velocidad baja - plataforma vieja)" }
 
     $diskEst = "SIN DATOS"; $diskMsg = "No se pudo clasificar"
     if ($diskType -match "HDD") { $diskEst="LENTO (HDD)"; $diskMsg="Pasando a SSD se nota mucho la diferencia" }
@@ -675,9 +675,9 @@ function Set-RegistryMark {
     $rp = "HKLM:\SOFTWARE\PCLAF\Diagnostics"
     try {
         if (-not (Test-Path $rp)) { New-Item $rp -Force | Out-Null }
-        $serials = ($Disks | ForEach-Object { $_.Serial }) -join " | "
+        $serialArr = $Disks | ForEach-Object { $_.Serial }; $serials = $serialArr -join ";"
         @{
-            LastRunDate   = (Get-Date).ToString("s")
+            LastRunDate   = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss")
             ScriptVersion = $ScriptVersion
             EstadoGeneral = [string]$Status.EstadoGeneral
             Fingerprint   = [string]$FP.Hash
@@ -703,14 +703,14 @@ function Compare-Records {
     }
     if (-not $Prev) { return $r }
     try {
-        $pDisks = (($Prev.Discos | ForEach-Object { $_.Serial }) -join " | ")
-        $cDisks = ($Disks | ForEach-Object { $_.Serial }) -join " | "
+        $pDiskArr = $Prev.Discos | ForEach-Object { $_.Serial }; $pDisks = $pDiskArr -join ";"
+        $cDiskArr = $Disks | ForEach-Object { $_.Serial }; $cDisks = $cDiskArr -join ";"
         $pFP = [string]$Prev.Fingerprint.Hash
         $r.Marca_Previa    = "SI"
         $r.Fecha_Anterior  = Safe ([string]$Prev.Metadata.Fecha)
         $r.Tecnico_Anterior= Safe ([string]$Prev.Metadata.Tecnico)
         $r.FP_Anterior     = Safe $pFP
-        $r.FP_Coincide     = if ($pFP -eq $FP.Hash) { "SI" } else { "NO — el equipo cambio hardware" }
+        $r.FP_Coincide     = if ($pFP -eq $FP.Hash) { "SI" } else { "NO - el equipo cambio hardware" }
         $r.Cambio_Disco    = if ($pDisks -and $pDisks -ne $cDisks) { "SI" } else { "NO" }
         $r.Cambio_RAM      = if ([string]$Prev.SystemSummary.RAM_Total_GB -ne [string]$Sys.RAM_Total_GB) { "SI" } else { "NO" }
         $r.Cambio_CPU      = if ([string]$Prev.SystemSummary.CPU -ne [string]$Sys.CPU) { "SI" } else { "NO" }
@@ -721,7 +721,7 @@ function Compare-Records {
         if ($r.Cambio_RAM -eq "SI") { $notes += "Cambio de RAM detectado" }
         if ($r.Cambio_CPU -eq "SI") { $notes += "Cambio de CPU detectado" }
         if ($r.Cambio_GPU -eq "SI") { $notes += "Cambio de GPU detectado" }
-        $r.Observacion = if ($notes) { $notes -join " | " } else { "Sin cambios de hardware desde la ultima revision" }
+        $r.Observacion = if ($notes) { $notes -join " / " } else { "Sin cambios de hardware desde la ultima revision" }
     } catch {}
     return $r
 }
@@ -762,20 +762,20 @@ function Get-FinalAssessment {
     }
 
     if (-not $motivos) { $motivos += "Sin alertas detectadas" }
-    [PSCustomObject]@{ EstadoGeneral=$estado; Motivos=($motivos -join " · ") }
+    [PSCustomObject]@{ EstadoGeneral=$estado; Motivos=($motivos -join " / ") }
 }
 
 function Get-Recommendations {
     param($Disks, $Vols, $Events, $Perf, $HwAge, $Integrity, $Def, $Trim)
     $items = @()
-    if ($Disks | Where-Object { $_.Estado -eq "REEMPLAZAR" }) { $items += [PSCustomObject]@{Prioridad="URGENTE";Accion="Reemplazar disco";Motivo="SMART indica falla inminente — riesgo de perder datos"} }
+    if ($Disks | Where-Object { $_.Estado -eq "REEMPLAZAR" }) { $items += [PSCustomObject]@{Prioridad="URGENTE";Accion="Reemplazar disco";Motivo="SMART indica falla inminente - riesgo de perder datos"} }
     if ($Disks | Where-Object { $_.Estado -eq "MAL" }) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Revisar disco";Motivo="Windows reporta problema de salud en el disco"} }
-    if ($Disks | Where-Object { $_.Tipo -match "HDD" }) { $items += [PSCustomObject]@{Prioridad="MEDIA";Accion="Migrar a SSD";Motivo="El sistema corre en disco mecanico — un SSD cambia radicalmente la velocidad"} }
-    if ($Vols | Where-Object { $_.Alerta -eq "CRITICO" }) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Liberar espacio urgente";Motivo="Menos del 5% libre — puede generar errores del sistema"} }
+    if ($Disks | Where-Object { $_.Tipo -match "HDD" }) { $items += [PSCustomObject]@{Prioridad="MEDIA";Accion="Migrar a SSD";Motivo="El sistema corre en disco mecanico - un SSD cambia radicalmente la velocidad"} }
+    if ($Vols | Where-Object { $_.Alerta -eq "CRITICO" }) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Liberar espacio urgente";Motivo="Menos del 5% libre - puede generar errores del sistema"} }
     elseif ($Vols | Where-Object { $_.Alerta -eq "ALTO" }) { $items += [PSCustomObject]@{Prioridad="MEDIA";Accion="Liberar espacio";Motivo="Poco espacio libre afecta rendimiento y actualizaciones"} }
     try { if ($Perf.RAM_Pct -ne "N/D" -and [double]$Perf.RAM_Pct -ge 85) { $items += [PSCustomObject]@{Prioridad="MEDIA";Accion="Ampliar RAM o revisar consumo";Motivo="La RAM esta muy exigida en uso normal"} } } catch {}
     if ($HwAge.RAM_Estado -eq "INSUFICIENTE") { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Ampliar RAM a 16 GB minimo";Motivo="Menos de 8 GB es critico para el uso moderno"} }
-    elseif ($HwAge.RAM_Estado -eq "JUSTA") { $items += [PSCustomObject]@{Prioridad="MEDIA";Accion="Ampliar RAM a 16 GB";Motivo="8 GB alcanza justo — 16 GB da mucho mas fluidez"} }
+    elseif ($HwAge.RAM_Estado -eq "JUSTA") { $items += [PSCustomObject]@{Prioridad="MEDIA";Accion="Ampliar RAM a 16 GB";Motivo="8 GB alcanza justo - 16 GB da mucho mas fluidez"} }
     if ($HwAge.Equipo_Estado -eq "PLATAFORMA VIEJA") { $items += [PSCustomObject]@{Prioridad="MEDIA";Accion="Evaluar cambio de plataforma";Motivo=$HwAge.Equipo_Msg} }
     if ($Integrity.Estado -match "CORRUPCION") { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Correr SFC y DISM";Motivo="Se detectaron archivos del sistema danados"} }
     if ($Def.Activo -eq $false -or $Def.TiempoReal -eq $false) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Activar Windows Defender";Motivo="La proteccion en tiempo real no esta activa"} }
@@ -1082,7 +1082,7 @@ $maintTask  = Set-MaintenanceTask -Meses $MesesMantenimiento
 
 Update-Stage 92 "Guardando marca PCLAF en el equipo"
 $record = [PSCustomObject]@{
-    Metadata    = [PSCustomObject]@{ Fecha=(Get-Date).ToString("s"); Version=$ScriptVersion; Equipo=$env:COMPUTERNAME; Tecnico=$Tecnico; Modo=$Modo; PCLAF_OS=$(if($SistemaInstaladoPorPCLAF){"SI"}else{"NO"}); MesesMant=$MesesMantenimiento }
+    Metadata    = [PSCustomObject]@{ Fecha=(Get-Date -Format "yyyy-MM-ddTHH:mm:ss"); Version=$ScriptVersion; Equipo=$env:COMPUTERNAME; Tecnico=$Tecnico; Modo=$Modo; PCLAF_OS=$(if($SistemaInstaladoPorPCLAF){"SI"}else{"NO"}); MesesMant=$MesesMantenimiento }
     FinalStatus = $finalStatus; Fingerprint=$fingerprint; Comparacion=$comparison
     SystemInfo=$osInfo; SystemSummary=$sysInfo; GPU=$gpuInfo; RAM=$ramInfo
     Discos=$diskInfo; Volumenes=$volInfo; Rendimiento=$perfInfo
@@ -1121,7 +1121,7 @@ $html = @"
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reporte PCLAF — $($env:COMPUTERNAME) — $Modo</title>
+<title>Reporte PCLAF - $($env:COMPUTERNAME) - $Modo</title>
 $CSS
 </head>
 <body>
@@ -1202,22 +1202,22 @@ $(To-HtmlTable $tempInfo)
   <div class="card$(if($hwAge.CPU_Estado -in @("VIEJO")){"bad"}elseif($hwAge.CPU_Estado -eq "USABLE"){"warn"}else{"ok"})">
     <div class="card-icon">🔲</div>
     <div class="card-title">Procesador (CPU)</div>
-    <div class="card-body">$(HtmlEnc $sysInfo.CPU)<br><strong>$(HtmlEnc $hwAge.CPU_Estado)</strong> — $(HtmlEnc $hwAge.CPU_Msg)<br>Núcleos: $($sysInfo.Cores) · Hilos: $($sysInfo.Hilos)</div>
+    <div class="card-body">$(HtmlEnc $sysInfo.CPU)<br><strong>$(HtmlEnc $hwAge.CPU_Estado)</strong> - $(HtmlEnc $hwAge.CPU_Msg)<br>Núcleos: $($sysInfo.Cores) · Hilos: $($sysInfo.Hilos)</div>
   </div>
   <div class="card$(if($hwAge.RAM_Estado -eq "INSUFICIENTE"){"bad"}elseif($hwAge.RAM_Estado -eq "JUSTA"){"warn"}else{"ok"})">
     <div class="card-icon">🧩</div>
     <div class="card-title">Memoria RAM</div>
-    <div class="card-body">$(HtmlEnc $sysInfo.RAM_Total_GB) GB instalados<br><strong>$(HtmlEnc $hwAge.RAM_Estado)</strong> — $(HtmlEnc $hwAge.RAM_Msg)</div>
+    <div class="card-body">$(HtmlEnc $sysInfo.RAM_Total_GB) GB instalados<br><strong>$(HtmlEnc $hwAge.RAM_Estado)</strong> - $(HtmlEnc $hwAge.RAM_Msg)</div>
   </div>
   <div class="card$(if($hwAge.Disco_Estado -match "LENTO"){"warn"}elseif($hwAge.Disco_Estado -eq "SIN DATOS"){""}else{"ok"})">
     <div class="card-icon">💾</div>
     <div class="card-title">Almacenamiento</div>
-    <div class="card-body"><strong>$(HtmlEnc $hwAge.Disco_Estado)</strong> — $(HtmlEnc $hwAge.Disco_Msg)</div>
+    <div class="card-body"><strong>$(HtmlEnc $hwAge.Disco_Estado)</strong> - $(HtmlEnc $hwAge.Disco_Msg)</div>
   </div>
   <div class="card$(if($hwAge.GPU_Estado -eq "VIEJA"){"warn"}else{"ok"})">
     <div class="card-icon">🎮</div>
     <div class="card-title">Placa de video (GPU)</div>
-    <div class="card-body">$(HtmlEnc (($gpuInfo|Select-Object -First 1).GPU))<br><strong>$(HtmlEnc $hwAge.GPU_Estado)</strong> — $(HtmlEnc $hwAge.GPU_Msg)</div>
+    <div class="card-body">$(HtmlEnc (($gpuInfo|Select-Object -First 1).GPU))<br><strong>$(HtmlEnc $hwAge.GPU_Estado)</strong> - $(HtmlEnc $hwAge.GPU_Msg)</div>
   </div>
 </div>
 </section>
@@ -1251,7 +1251,7 @@ if ($Modo -eq "tecnico") {
     $html += @"
 
 <section>
-<h2>🔬 Análisis de hardware — Detalle técnico</h2>
+<h2>🔬 Análisis de hardware - Detalle técnico</h2>
 $(To-HtmlTable @($hwAge))
 </section>
 
@@ -1357,7 +1357,7 @@ $(To-HtmlTable $startApps)
 
 <section>
 <h2>🔌 Drivers (30 más antiguos)</h2>
-<div class="section-sub">Ordenados por fecha — los más antiguos primero</div>
+<div class="section-sub">Ordenados por fecha - los más antiguos primero</div>
 $(To-HtmlTable $driversInfo)
 </section>
 
@@ -1372,7 +1372,7 @@ $(To-HtmlTable $critEvts)
 </section>
 
 <section>
-<h2>🔎 Historial PCLAF — Comparativa</h2>
+<h2>🔎 Historial PCLAF - Comparativa</h2>
 $(To-HtmlTable @($comparison))
 </section>
 
@@ -1390,8 +1390,8 @@ $(To-HtmlTable $instApps)
 <section>
 <h2>✔️ Marca PCLAF en el equipo</h2>
 $(To-HtmlTable @([PSCustomObject]@{
-  Registro_WIndows = if($markOk){"OK — HKLM:\SOFTWARE\PCLAF\Diagnostics"}else{"No se pudo escribir"}
-  JSON_Local = if($writeOk){"OK — C:\ProgramData\PCLAF\last.json"}else{"No se pudo escribir"}
+  Registro_WIndows = if($markOk){"OK - HKLM:\SOFTWARE\PCLAF\Diagnostics"}else{"No se pudo escribir"}
+  JSON_Local = if($writeOk){"OK - C:\ProgramData\PCLAF\last.json"}else{"No se pudo escribir"}
   Tecnico = $Tecnico
   SO_Instalado_PCLAF = if($SistemaInstaladoPorPCLAF){"SI"}else{"NO"}
   Prox_Revision = $nextDate
@@ -1405,7 +1405,7 @@ $html += @"
 
 <div class="footer">
   PCLAF · Servicio técnico · Campana 51, Floresta, CABA · 11 4175-8129 · pclaf.com.ar · @servicepclaf<br>
-  Reporte generado el $(Get-Date -Format "dd/MM/yyyy HH:mm") por $Tecnico — Script v$ScriptVersion ($Modo)
+  Reporte generado el $(Get-Date -Format "dd/MM/yyyy HH:mm") por $Tecnico - Script v$ScriptVersion ($Modo)
 </div>
 
 </div><!-- /wrap -->
@@ -1422,7 +1422,7 @@ Update-Stage 100 "¡Listo!"
 Write-Progress -Activity "PCLAF Diagnostico" -Completed
 Write-Host ""
 Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  PCLAF Diagnostico v$ScriptVersion — $($Modo.ToUpper())" -ForegroundColor Cyan
+Write-Host "  PCLAF Diagnostico v$ScriptVersion - $($Modo.ToUpper())" -ForegroundColor Cyan
 Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  Reporte : $outFile" -ForegroundColor Green
 Write-Host "  Estado  : $($finalStatus.EstadoGeneral)" -ForegroundColor $(if($finalStatus.EstadoGeneral -match "EXCELENTE"){"Green"}elseif($finalStatus.EstadoGeneral -match "OBSERVACIONES"){"Yellow"}else{"Red"})
