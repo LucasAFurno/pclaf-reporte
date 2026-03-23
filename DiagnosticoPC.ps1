@@ -984,25 +984,25 @@ function Get-ClientSummary {
     param($Status, $HwAge, $Vols, $Disks, $Perf, $Temps, $Rec, $NextDate)
     $estado = $Status.EstadoGeneral
     $estadoCls = if ($estado -match "EXCELENTE") { "ok" } elseif ($estado -match "OBSERVACIONES|REVISION") { "warn" } else { "bad" }
-    $emoji = if ($estado -match "EXCELENTE") { "[OK]" } elseif ($estado -match "OBSERVACIONES") { "[!]" } else { "[!]" }
+    $emoji = if ($estado -match "EXCELENTE") { "&#9989;" } elseif ($estado -match "OBSERVACIONES") { "&#9888;" } else { "&#128308;" }
 
     $diskMsg = ""
     $badDisk = $Disks | Where-Object { $_.Estado -ne "BIEN" -and $_.Estado -ne "SIN DATOS" }
-    if ($badDisk) { $diskMsg = "[!] Se detecto un problema en el almacenamiento que requiere atencion." }
-    else { $diskMsg = "[OK] Los discos estan en buen estado." }
+    if ($badDisk) { $diskMsg = "&#9888; Se detecto un problema en el almacenamiento." }
+    else { $diskMsg = "&#9989; Los discos estan en buen estado." }
 
     $ramPctVal = 0; try { $ramPctVal = [double]$Perf.RAM_Pct } catch {}
-    $ramMsg = if ($ramPctVal -ge 85) { "[!] La memoria RAM esta muy exigida. Considerar ampliarla." } else { "[OK] La memoria RAM opera con normalidad." }
+    $ramMsg = if ($ramPctVal -ge 85) { "&#9888; La memoria RAM esta muy exigida." } else { "&#9989; La memoria RAM opera con normalidad." }
 
     $tempMsg = ""
     $hotZone = $Temps | Where-Object { $_.Estado -in @("ALTO","CRITICO") }
-    if ($hotZone) { $tempMsg = "[TEMP] Se detectaron temperaturas elevadas. Puede ser senal de que necesita limpieza interna." }
-    else { $tempMsg = "[TEMP] Las temperaturas son normales." }
+    if ($hotZone) { $tempMsg = "&#127777; Se detectaron temperaturas elevadas." }
+    else { $tempMsg = "&#127777; Las temperaturas son normales." }
 
     $spaceMsg = ""
     $tightVol = $Vols | Where-Object { $_.Alerta -in @("ALTO","CRITICO") }
-    if ($tightVol) { $spaceMsg = "[DISCO] Hay poco espacio disponible en disco. Conviene liberar archivos innecesarios." }
-    else { $spaceMsg = "[DISCO] El espacio en disco esta bien." }
+    if ($tightVol) { $spaceMsg = "&#128190; Poco espacio en disco. Conviene liberar archivos." }
+    else { $spaceMsg = "&#128190; El espacio en disco esta bien." }
 
     $urgentRec = ($Rec | Where-Object { $_.Prioridad -in @("URGENTE","ALTA") })
     $recMsg = if ($urgentRec) { "Se identificaron " + ($urgentRec | Measure-Object).Count + " punto(s) que requieren atencion." } else { "No hay acciones urgentes pendientes." }
@@ -1016,11 +1016,11 @@ function Get-ClientSummary {
 <p>$tempMsg</p>
 <p>$spaceMsg</p>
 <br>
-<p><strong>[S] Evaluacion del hardware:</strong> $(HtmlEnc $HwAge.Equipo_Msg)</p>
+<p><strong>&#128295; Evaluacion del hardware:</strong> $(HtmlEnc $HwAge.Equipo_Msg)</p>
 <br>
-<p><strong>[I] Recomendaciones:</strong> $recMsg</p>
+<p><strong>&#128203; Recomendaciones:</strong> $recMsg</p>
 <br>
-<p><strong>[F] Proxima revision recomendada:</strong> <span class='highlight'>$NextDate</span></p>
+<p><strong>&#128197; Proxima revision recomendada:</strong> <span class='highlight'>$NextDate</span></p>
 </div>
 "@
 }
@@ -1185,41 +1185,41 @@ if ($ServicioRealizado -or $PrecioServicio) {
 
 $html += @"
 <section>
-<h2>[I] Resumen del estado del equipo</h2>
+<h2>&#128203; Resumen del estado del equipo</h2>
 $(Get-ClientSummary -Status $finalStatus -HwAge $hwAge -Vols $volInfo -Disks $diskInfo -Perf $perfInfo -Temps $tempInfo -Rec $recs -NextDate $nextDate)
 </section>
 
 <section>
-<h2>[OK] Recomendaciones</h2>
+<h2>&#9989; Recomendaciones</h2>
 $(To-HtmlTable $recs)
 </section>
 
 <section>
-<h2>[T] Temperaturas del sistema</h2>
+<h2>&#127777; Temperaturas del sistema</h2>
 <div class="section-sub">Temperaturas reportadas por los sensores internos del equipo</div>
 $(To-HtmlTable $tempInfo)
 </section>
 
 <section>
-<h2>[NB] Hardware del equipo</h2>
+<h2>&#128187; Hardware del equipo</h2>
 <div class="cards">
   <div class="card $(if($hwAge.CPU_Estado -in @("VIEJO")){"bad"}elseif($hwAge.CPU_Estado -eq "USABLE"){"warn"}else{"ok"})">
-    <div class="card-icon">[HW]</div>
+    <div class="card-icon">&#128306;</div>
     <div class="card-title">Procesador (CPU)</div>
     <div class="card-body">$(HtmlEnc $sysInfo.CPU)<br><strong>$(if($hwAge.CPU_Estado){HtmlEnc $hwAge.CPU_Estado}else{"N/D"})</strong> - $(if($hwAge.CPU_Msg){HtmlEnc $hwAge.CPU_Msg}else{"Sin datos"})<br>Nucleos: $($sysInfo.Cores) - Hilos: $($sysInfo.Hilos)</div>
   </div>
   <div class="card $(if($hwAge.RAM_Estado -eq "INSUFICIENTE"){"bad"}elseif($hwAge.RAM_Estado -eq "JUSTA"){"warn"}else{"ok"})">
-    <div class="card-icon">[+]</div>
+    <div class="card-icon">&#129513;</div>
     <div class="card-title">Memoria RAM</div>
     <div class="card-body">$(HtmlEnc $sysInfo.RAM_Total_GB) GB instalados<br><strong>$(if($hwAge.RAM_Estado){HtmlEnc $hwAge.RAM_Estado}else{"N/D"})</strong> - $(if($hwAge.RAM_Msg){HtmlEnc $hwAge.RAM_Msg}else{"Sin datos"})</div>
   </div>
   <div class="card $(if($hwAge.Disco_Estado -match "LENTO"){"warn"}elseif($hwAge.Disco_Estado -eq "SIN DATOS"){"info"}else{"ok"})">
-    <div class="card-icon">[D]</div>
+    <div class="card-icon">&#128190;</div>
     <div class="card-title">Almacenamiento</div>
     <div class="card-body"><strong>$(if($hwAge.Disco_Estado){HtmlEnc $hwAge.Disco_Estado}else{"N/D"})</strong> - $(if($hwAge.Disco_Msg){HtmlEnc $hwAge.Disco_Msg}else{"Sin datos"})</div>
   </div>
   <div class="card $(if($hwAge.GPU_Estado -eq "VIEJA"){"warn"}else{"ok"})">
-    <div class="card-icon">[G]</div>
+    <div class="card-icon">&#127918;</div>
     <div class="card-title">Placa de video (GPU)</div>
     <div class="card-body">$(HtmlEnc (($gpuInfo|Select-Object -First 1).GPU))<br><strong>$(if($hwAge.GPU_Estado){HtmlEnc $hwAge.GPU_Estado}else{"N/D"})</strong> - $(if($hwAge.GPU_Msg){HtmlEnc $hwAge.GPU_Msg}else{"Sin datos"})</div>
   </div>
@@ -1227,17 +1227,17 @@ $(To-HtmlTable $tempInfo)
 </section>
 
 <section>
-<h2>[D] Estado de los discos</h2>
+<h2>&#128190; Estado de los discos</h2>
 $(To-HtmlTable $diskInfo)
 </section>
 
 <section>
-<h2>[F] Espacio en unidades</h2>
+<h2>&#128193; Espacio en unidades</h2>
 $(To-HtmlTable $volInfo)
 </section>
 
 <section>
-<h2>[F] Proxima revision</h2>
+<h2>&#128197; Proxima revision</h2>
 <div class="next-box">
   <div class="next-date">$nextDate</div>
   <div class="next-msg">
@@ -1260,27 +1260,27 @@ $(To-HtmlTable @($hwAge))
 </section>
 
 <section>
-<h2>[PC] Sistema operativo</h2>
+<h2>&#128187; Sistema operativo</h2>
 $(To-HtmlTable @($osInfo))
 </section>
 
 <section>
-<h2>[HW] Resumen de hardware</h2>
+<h2>&#128297; Resumen de hardware</h2>
 $(To-HtmlTable @($sysInfo))
 </section>
 
 <section>
-<h2>[MON] Placas de video</h2>
+<h2>&#128250; Placas de video</h2>
 $(To-HtmlTable $gpuInfo)
 </section>
 
 <section>
-<h2>[+] Modulos de RAM</h2>
+<h2>&#129513; Modulos de RAM</h2>
 $(To-HtmlTable $ramInfo)
 </section>
 
 <section>
-<h2>[K] Activacion de Windows</h2>
+<h2>&#128273; Activacion de Windows</h2>
 $(To-HtmlTable @($activInfo))
 </section>
 
@@ -1290,22 +1290,22 @@ $(To-HtmlTable @($powerProf))
 </section>
 
 <section>
-<h2>[S] Seguridad basica</h2>
+<h2>&#128274; Seguridad basica</h2>
 $(To-HtmlTable @($secInfo))
 </section>
 
 <section>
-<h2>[AV] Windows Defender</h2>
+<h2>&#128737; Windows Defender</h2>
 $(To-HtmlTable @($defInfo))
 </section>
 
 <section>
-<h2>[BAT] Bateria</h2>
+<h2>&#128267; Bateria</h2>
 $(To-HtmlTable $batInfo)
 </section>
 
 <section>
-<h2>[W] Red</h2>
+<h2>&#127760; Red</h2>
 $(To-HtmlTable $netInfo)
 </section>
 
@@ -1325,42 +1325,42 @@ $(To-HtmlTable @($integ))
 </section>
 
 <section>
-<h2>[SEM] Rendimiento actual</h2>
+<h2>&#128678; Rendimiento actual</h2>
 $(To-HtmlTable @($perfInfo))
 </section>
 
 <section>
-<h2>[T] Historial de arranques</h2>
+<h2>&#9203; Historial de arranques</h2>
 $(To-HtmlTable $bootInfo)
 </section>
 
 <section>
-<h2>[TOP] Top procesos</h2>
+<h2>&#128202; Top procesos</h2>
 $(To-HtmlTable $topProc)
 </section>
 
 <section>
-<h2>[R] Puertos abiertos (muestra)</h2>
+<h2>&#128225; Puertos abiertos</h2>
 $(To-HtmlTable $openPorts)
 </section>
 
 <section>
-<h2>[CFG] Servicios de terceros activos</h2>
+<h2>&#9881; Servicios de terceros</h2>
 $(To-HtmlTable $nonMsSvcs)
 </section>
 
 <section>
-<h2>[CAL] Tareas programadas (no-Windows)</h2>
+<h2>&#128198; Tareas programadas</h2>
 $(To-HtmlTable $schedTasks)
 </section>
 
 <section>
-<h2>[RUN] Programas de inicio</h2>
+<h2>&#128640; Programas de inicio</h2>
 $(To-HtmlTable $startApps)
 </section>
 
 <section>
-<h2>[E] Drivers (30 mas antiguos)</h2>
+<h2>&#128268; Drivers antiguos</h2>
 <div class="section-sub">Ordenados por fecha - los mas antiguos primero</div>
 $(To-HtmlTable $driversInfo)
 </section>
@@ -1371,17 +1371,17 @@ $(To-HtmlTable $memErrs)
 </section>
 
 <section>
-<h2>[I] Eventos criticos (ultimos 30 dias)</h2>
+<h2>&#128680; Eventos criticos (30 dias)</h2>
 $(To-HtmlTable $critEvts)
 </section>
 
 <section>
-<h2>[HIST] Historial PCLAF - Comparativa</h2>
+<h2>&#128270; Historial PCLAF - Comparativa</h2>
 $(To-HtmlTable @($comparison))
 </section>
 
 <section>
-<h2>[DNA] Fingerprint del equipo</h2>
+<h2>&#128302; Fingerprint del equipo</h2>
 <div class="section-sub">Hash unico basado en CPU, MB, RAM, disco y hostname. Detecta cambios de hardware.</div>
 $(To-HtmlTable @($fingerprint))
 </section>
@@ -1392,7 +1392,7 @@ $(To-HtmlTable $instApps)
 </section>
 
 <section>
-<h2>[v] Marca PCLAF en el equipo</h2>
+<h2>&#9989; Marca PCLAF en el equipo</h2>
 $(To-HtmlTable @([PSCustomObject]@{
   Registro_WIndows = if($markOk){"OK - HKCU:\SOFTWARE\PCLAF\Diagnostics"}else{"No se pudo escribir"}
   JSON_Local = if($writeOk){"OK - C:\ProgramData\PCLAF\last.json"}else{"No se pudo escribir"}
