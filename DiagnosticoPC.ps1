@@ -71,7 +71,11 @@ function Get-OsInfo {
     [PSCustomObject]@{
         Equipo         = $env:COMPUTERNAME
         Usuario        = $env:USERNAME
-        SO             = Safe (if ($cv -and $cv.ProductName) { $cv.ProductName } else { $os.Caption })
+        SO             = (
+            if ($cv -and $cv.ProductName) { "$($cv.ProductName) $(if($cv.DisplayVersion){$cv.DisplayVersion}else{''})".Trim() }
+            elseif ($os -and $os.Caption) { $os.Caption }
+            else { "Windows (desconocido)" }
+        )
         Version        = $releaseId
         ReleaseId      = Safe $cv.ReleaseId
         Build          = Safe $os.BuildNumber
@@ -115,7 +119,10 @@ function Get-SystemSummary {
 
 function Get-GpuInfo {
     try {
-        $gpus = Get-CimInstance Win32_VideoController
+        $gpus = Get-CimInstance Win32_VideoController | Where-Object { 
+            $_.Name -notmatch "Remote|Virtual|Basic|Microsoft|Hyper-V" -or $_.AdapterRAM -gt 0
+        }
+        if (-not $gpus) { $gpus = Get-CimInstance Win32_VideoController | Select-Object -First 1 }
         if (-not $gpus) { return [PSCustomObject]@{ GPU="No detectada"; VRAM_GB="N/D"; Driver="N/D"; Resolucion="N/D" } }
         $gpus | ForEach-Object {
             [PSCustomObject]@{
@@ -628,7 +635,7 @@ function Get-HardwareAge {
     elseif ($ramGB -lt 16) { $ramEst="JUSTA"; $ramMsg="8 GB alcanza justo. Conviene llegar a 16 GB" }
     elseif ($ramGB -lt 32) { $ramEst="BUENA"; $ramMsg="16 GB esta bien para la mayoria de usos" }
     else { $ramEst="SOBRADA"; $ramMsg="32 GB o mas es suficiente para cualquier uso" }
-    if ($ramMhz -gt 0 -and $ramMhz -le 1600) { $ramMsg += " (velocidad baja - plataforma vieja)" }
+    if ($ramMhz -gt 0 -and $ramMhz -le 1600) { $ramMsg += " (velocidad baja, plataforma vieja)" }
 
     $diskEst = "SIN DATOS"; $diskMsg = "No se pudo clasificar"
     if ($diskType -match "HDD") { $diskEst="LENTO (HDD)"; $diskMsg="Pasando a SSD se nota mucho la diferencia" }
@@ -966,7 +973,7 @@ function Get-TrafficLight {
         "warn|USABLE|JUSTA|MODERADO|ELEVADO|INTERMEDIA|EQUILIBRADO|CON OBSERVACIONES" { "warn" }
         default { "bad" }
     }
-    return "<div class='tl'><div class='tl-dot $cls'></div><div><div class='tl-label'>$Label</div><div class='tl-value'>$([System.Web.HttpUtility]::HtmlEncode($Value))</div></div></div>"
+    return "<div class='tl'><div class='tl-dot $cls'></div><div><div class='tl-label'>$Label</div><div class='tl-value'>$($Value -replace "&","&amp;" -replace "<","&lt;" -replace ">","&gt;" -replace '"','&quot;')</div></div></div>"
 }
 
 function Get-RamBar {
@@ -1021,7 +1028,7 @@ function Get-ClientSummary {
 "@
 }
 
-function HtmlEnc { param($s) return [System.Web.HttpUtility]::HtmlEncode([string]$s) }
+function HtmlEnc { param($s) $t=[string]$s; return $t -replace "&","&amp;" -replace "<","&lt;" -replace ">","&gt;" -replace '"','&quot;' }
 
 # --- EJECUCION ---------------------------------------------------------------
 
@@ -1072,7 +1079,7 @@ Update-Stage 78 "Leyendo marca previa y comparando hardware"
 $pclafPaths = Get-PCLAFPaths
 $prevRec    = Read-PreviousRecord -P $pclafPaths
 $fingerprint= Get-HardwareFingerprint -Sys $sysInfo -Disks $diskInfo
-$hwAge      = Get-HardwareAgeAssessment -Sys $sysInfo -Gpu $gpuInfo -Disks $diskInfo -Ram $ramInfo
+$hwAge      = Get-HardwareAge -Sys $sysInfo -Gpu $gpuInfo -Disks $diskInfo -Ram $ramInfo
 $comparison = Compare-Records -Prev $prevRec -FP $fingerprint -Sys $sysInfo -Disks $diskInfo -Gpu $gpuInfo
 
 Update-Stage 86 "Calculando estado final y recomendaciones"
@@ -1096,7 +1103,7 @@ $writeOk = Write-Record -P $pclafPaths -Rec $record
 
 Update-Stage 96 "Generando reporte HTML $Modo"
 
-$nextDate   = (Get-Date).AddMonths($MesesMantenimiento).ToString("MMMM yyyy")
+$nextDate   = (Get-Date).AddMonths($MesesMantenimiento).ToString("MM/yyyy")
 $estadoCls  = if ($finalStatus.EstadoGeneral -match "EXCELENTE") { "ok" } elseif ($finalStatus.EstadoGeneral -match "OBSERVACIONES|REVISION") { "warn" } else { "bad" }
 $bannerEmoji= if ($finalStatus.EstadoGeneral -match "EXCELENTE") { "[OK]" } elseif ($finalStatus.EstadoGeneral -match "OBSERVACIONES") { "[!]" } else { "[!]" }
 
@@ -1155,7 +1162,7 @@ $CSS
     <div class="kpi"><div class="kpi-l">RAM</div><div class="kpi-v">$($sysInfo.RAM_Total_GB) GB</div></div>
     <div class="kpi"><div class="kpi-l">Uso RAM actual</div><div class="kpi-v">$($perfInfo.RAM_Pct)%$ramBar</div></div>
     <div class="kpi"><div class="kpi-l">Disco principal</div><div class="kpi-v" style="font-size:13px">$(HtmlEnc (($diskInfo|Select-Object -First 1).Modelo))</div></div>
-    <div class="kpi"><div class="kpi-l">Temp. CPU</div><div class="kpi-v">$(($tempInfo|Select-Object -First 1).Celsius) gradosC</div></div>
+    <div class="kpi"><div class="kpi-l">Temp. CPU</div><div class="kpi-v">$(if(($tempInfo|Select-Object -First 1).Celsius -ne "N/D"){"$(($tempInfo|Select-Object -First 1).Celsius) C"}else{"Sin sensor"})</div></div>
   </div>
 </div>
 
@@ -1199,25 +1206,25 @@ $(To-HtmlTable $tempInfo)
 <section>
 <h2>[NB] Hardware del equipo</h2>
 <div class="cards">
-  <div class="card$(if($hwAge.CPU_Estado -in @("VIEJO")){"bad"}elseif($hwAge.CPU_Estado -eq "USABLE"){"warn"}else{"ok"})">
+  <div class="card $(if($hwAge.CPU_Estado -in @("VIEJO")){"bad"}elseif($hwAge.CPU_Estado -eq "USABLE"){"warn"}else{"ok"})">
     <div class="card-icon">[HW]</div>
     <div class="card-title">Procesador (CPU)</div>
-    <div class="card-body">$(HtmlEnc $sysInfo.CPU)<br><strong>$(HtmlEnc $hwAge.CPU_Estado)</strong> - $(HtmlEnc $hwAge.CPU_Msg)<br>Nucleos: $($sysInfo.Cores) - Hilos: $($sysInfo.Hilos)</div>
+    <div class="card-body">$(HtmlEnc $sysInfo.CPU)<br><strong>$(if($hwAge.CPU_Estado){HtmlEnc $hwAge.CPU_Estado}else{"N/D"})</strong> - $(if($hwAge.CPU_Msg){HtmlEnc $hwAge.CPU_Msg}else{"Sin datos"})<br>Nucleos: $($sysInfo.Cores) - Hilos: $($sysInfo.Hilos)</div>
   </div>
-  <div class="card$(if($hwAge.RAM_Estado -eq "INSUFICIENTE"){"bad"}elseif($hwAge.RAM_Estado -eq "JUSTA"){"warn"}else{"ok"})">
+  <div class="card $(if($hwAge.RAM_Estado -eq "INSUFICIENTE"){"bad"}elseif($hwAge.RAM_Estado -eq "JUSTA"){"warn"}else{"ok"})">
     <div class="card-icon">[+]</div>
     <div class="card-title">Memoria RAM</div>
-    <div class="card-body">$(HtmlEnc $sysInfo.RAM_Total_GB) GB instalados<br><strong>$(HtmlEnc $hwAge.RAM_Estado)</strong> - $(HtmlEnc $hwAge.RAM_Msg)</div>
+    <div class="card-body">$(HtmlEnc $sysInfo.RAM_Total_GB) GB instalados<br><strong>$(if($hwAge.RAM_Estado){HtmlEnc $hwAge.RAM_Estado}else{"N/D"})</strong> - $(if($hwAge.RAM_Msg){HtmlEnc $hwAge.RAM_Msg}else{"Sin datos"})</div>
   </div>
-  <div class="card$(if($hwAge.Disco_Estado -match "LENTO"){"warn"}elseif($hwAge.Disco_Estado -eq "SIN DATOS"){""}else{"ok"})">
+  <div class="card $(if($hwAge.Disco_Estado -match "LENTO"){"warn"}elseif($hwAge.Disco_Estado -eq "SIN DATOS"){"info"}else{"ok"})">
     <div class="card-icon">[D]</div>
     <div class="card-title">Almacenamiento</div>
-    <div class="card-body"><strong>$(HtmlEnc $hwAge.Disco_Estado)</strong> - $(HtmlEnc $hwAge.Disco_Msg)</div>
+    <div class="card-body"><strong>$(if($hwAge.Disco_Estado){HtmlEnc $hwAge.Disco_Estado}else{"N/D"})</strong> - $(if($hwAge.Disco_Msg){HtmlEnc $hwAge.Disco_Msg}else{"Sin datos"})</div>
   </div>
-  <div class="card$(if($hwAge.GPU_Estado -eq "VIEJA"){"warn"}else{"ok"})">
+  <div class="card $(if($hwAge.GPU_Estado -eq "VIEJA"){"warn"}else{"ok"})">
     <div class="card-icon">[G]</div>
     <div class="card-title">Placa de video (GPU)</div>
-    <div class="card-body">$(HtmlEnc (($gpuInfo|Select-Object -First 1).GPU))<br><strong>$(HtmlEnc $hwAge.GPU_Estado)</strong> - $(HtmlEnc $hwAge.GPU_Msg)</div>
+    <div class="card-body">$(HtmlEnc (($gpuInfo|Select-Object -First 1).GPU))<br><strong>$(if($hwAge.GPU_Estado){HtmlEnc $hwAge.GPU_Estado}else{"N/D"})</strong> - $(if($hwAge.GPU_Msg){HtmlEnc $hwAge.GPU_Msg}else{"Sin datos"})</div>
   </div>
 </div>
 </section>
