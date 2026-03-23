@@ -676,7 +676,7 @@ function Write-Record {
 
 function Set-RegistryMark {
     param($FP, $Status, $Sys, $Disks)
-    $rp = "HKLM:\SOFTWARE\PCLAF\Diagnostics"
+    $rp = "HKCU:\SOFTWARE\PCLAF\Diagnostics"
     try {
         if (-not (Test-Path $rp)) { New-Item $rp -Force | Out-Null }
         $serialArr = $Disks | ForEach-Object { $_.Serial }; $serials = $serialArr -join ";"
@@ -1394,7 +1394,7 @@ $(To-HtmlTable $instApps)
 <section>
 <h2>[v] Marca PCLAF en el equipo</h2>
 $(To-HtmlTable @([PSCustomObject]@{
-  Registro_WIndows = if($markOk){"OK - HKLM:\SOFTWARE\PCLAF\Diagnostics"}else{"No se pudo escribir"}
+  Registro_WIndows = if($markOk){"OK - HKCU:\SOFTWARE\PCLAF\Diagnostics"}else{"No se pudo escribir"}
   JSON_Local = if($writeOk){"OK - C:\ProgramData\PCLAF\last.json"}else{"No se pudo escribir"}
   Tecnico = $Tecnico
   SO_Instalado_PCLAF = if($SistemaInstaladoPorPCLAF){"SI"}else{"NO"}
