@@ -68,14 +68,11 @@ function Get-OsInfo {
     $releaseId = "N/D"
     try { $releaseId = if ($cv.DisplayVersion) { $cv.DisplayVersion } elseif ($cv.ReleaseId) { $cv.ReleaseId } else { "N/D" } } catch {}
 
+    $soName = if ($cv -and $cv.ProductName) { "$($cv.ProductName) $($cv.DisplayVersion)".Trim() } elseif ($os -and $os.Caption) { $os.Caption } else { "Windows" }
     [PSCustomObject]@{
         Equipo         = $env:COMPUTERNAME
         Usuario        = $env:USERNAME
-        SO             = (
-            if ($cv -and $cv.ProductName) { "$($cv.ProductName) $(if($cv.DisplayVersion){$cv.DisplayVersion}else{''})".Trim() }
-            elseif ($os -and $os.Caption) { $os.Caption }
-            else { "Windows (desconocido)" }
-        )
+        SO             = $soName
         Version        = $releaseId
         ReleaseId      = Safe $cv.ReleaseId
         Build          = Safe $os.BuildNumber
