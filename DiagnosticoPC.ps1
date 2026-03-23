@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     PCLAF - Script de diagnostico tecnico v3.0
@@ -36,7 +36,7 @@ $ScriptVersion = "3.0"
 $BasePath = if ($PSScriptRoot) { $PSScriptRoot } else { $env:TEMP }
 $FechaReporte = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 
-# ─── HELPERS ────────────────────────────────────────────────────────────────
+# --- HELPERS ----------------------------------------------------------------
 
 function Update-Stage {
     param([int]$Percent, [string]$Message)
@@ -58,7 +58,7 @@ function To-DT {
 
 function Round2 { param($v) try { return [math]::Round([double]$v, 2) } catch { return "N/D" } }
 
-# ─── RECOLECCION DE DATOS ───────────────────────────────────────────────────
+# --- RECOLECCION DE DATOS ---------------------------------------------------
 
 function Get-OsInfo {
     $os = $null; $cv = $null
@@ -635,7 +635,7 @@ function Get-HardwareAge {
     elseif ($diskType -match "SSD" -or ($Disks|Where-Object{$_.Modelo -match "NVMe|SSD"})) { $diskEst="RAPIDO (SSD)"; $diskMsg="Bien. SSD marca la diferencia en velocidad" }
 
     $gpuEst = "INTERMEDIA"; $gpuMsg = "GPU razonable"
-    if ($gpu -match "HD [234]\d{3}|HD Graphics [23]\d{3}|GT [67]\d{2}|GTX [456789]\d{2}|R5 Graphics") { $gpuEst="VIEJA"; $gpuMsg="GPU vieja o integrada. Sirve para ofimática, no para juegos o renders" }
+    if ($gpu -match "HD [234]\d{3}|HD Graphics [23]\d{3}|GT [67]\d{2}|GTX [456789]\d{2}|R5 Graphics") { $gpuEst="VIEJA"; $gpuMsg="GPU vieja o integrada. Sirve para ofimatica, no para juegos o renders" }
     elseif ($gpu -match "RTX [234]\d{3}|RX [67]\d{3}|Arc") { $gpuEst="NUEVA"; $gpuMsg="GPU actual. Sin necesidad de cambio" }
 
     $overall = "EQUIPO USABLE"; $overallMsg = "No es urgente cambiar hardware"
@@ -796,7 +796,7 @@ function Set-MaintenanceTask { param([int]$Meses)
     }
 }
 
-# ─── HTML GENERATION ────────────────────────────────────────────────────────
+# --- HTML GENERATION --------------------------------------------------------
 
 $CSS = @'
 <style>
@@ -980,28 +980,28 @@ function Get-ClientSummary {
     param($Status, $HwAge, $Vols, $Disks, $Perf, $Temps, $Rec, $NextDate)
     $estado = $Status.EstadoGeneral
     $estadoCls = if ($estado -match "EXCELENTE") { "ok" } elseif ($estado -match "OBSERVACIONES|REVISION") { "warn" } else { "bad" }
-    $emoji = if ($estado -match "EXCELENTE") { "✅" } elseif ($estado -match "OBSERVACIONES") { "⚠️" } else { "🔴" }
+    $emoji = if ($estado -match "EXCELENTE") { "[OK]" } elseif ($estado -match "OBSERVACIONES") { "[!]" } else { "[!]" }
 
     $diskMsg = ""
     $badDisk = $Disks | Where-Object { $_.Estado -ne "BIEN" -and $_.Estado -ne "SIN DATOS" }
-    if ($badDisk) { $diskMsg = "⚠️ Se detectó un problema en el almacenamiento que requiere atención." }
-    else { $diskMsg = "✅ Los discos están en buen estado." }
+    if ($badDisk) { $diskMsg = "[!] Se detecto un problema en el almacenamiento que requiere atencion." }
+    else { $diskMsg = "[OK] Los discos estan en buen estado." }
 
     $ramPctVal = 0; try { $ramPctVal = [double]$Perf.RAM_Pct } catch {}
-    $ramMsg = if ($ramPctVal -ge 85) { "⚠️ La memoria RAM está muy exigida. Considerar ampliarla." } else { "✅ La memoria RAM opera con normalidad." }
+    $ramMsg = if ($ramPctVal -ge 85) { "[!] La memoria RAM esta muy exigida. Considerar ampliarla." } else { "[OK] La memoria RAM opera con normalidad." }
 
     $tempMsg = ""
     $hotZone = $Temps | Where-Object { $_.Estado -in @("ALTO","CRITICO") }
-    if ($hotZone) { $tempMsg = "🌡️ Se detectaron temperaturas elevadas. Puede ser señal de que necesita limpieza interna." }
-    else { $tempMsg = "🌡️ Las temperaturas son normales." }
+    if ($hotZone) { $tempMsg = "[TEMP] Se detectaron temperaturas elevadas. Puede ser senal de que necesita limpieza interna." }
+    else { $tempMsg = "[TEMP] Las temperaturas son normales." }
 
     $spaceMsg = ""
     $tightVol = $Vols | Where-Object { $_.Alerta -in @("ALTO","CRITICO") }
-    if ($tightVol) { $spaceMsg = "💾 Hay poco espacio disponible en disco. Conviene liberar archivos innecesarios." }
-    else { $spaceMsg = "💾 El espacio en disco está bien." }
+    if ($tightVol) { $spaceMsg = "[DISCO] Hay poco espacio disponible en disco. Conviene liberar archivos innecesarios." }
+    else { $spaceMsg = "[DISCO] El espacio en disco esta bien." }
 
     $urgentRec = ($Rec | Where-Object { $_.Prioridad -in @("URGENTE","ALTA") })
-    $recMsg = if ($urgentRec) { "Se identificaron " + ($urgentRec | Measure-Object).Count + " punto(s) que requieren atención." } else { "No hay acciones urgentes pendientes." }
+    $recMsg = if ($urgentRec) { "Se identificaron " + ($urgentRec | Measure-Object).Count + " punto(s) que requieren atencion." } else { "No hay acciones urgentes pendientes." }
 
     return @"
 <div class='resumen-box'>
@@ -1012,18 +1012,18 @@ function Get-ClientSummary {
 <p>$tempMsg</p>
 <p>$spaceMsg</p>
 <br>
-<p><strong>🔧 Evaluación del hardware:</strong> $(HtmlEnc $HwAge.Equipo_Msg)</p>
+<p><strong>[S] Evaluacion del hardware:</strong> $(HtmlEnc $HwAge.Equipo_Msg)</p>
 <br>
-<p><strong>📋 Recomendaciones:</strong> $recMsg</p>
+<p><strong>[I] Recomendaciones:</strong> $recMsg</p>
 <br>
-<p><strong>📅 Próxima revisión recomendada:</strong> <span class='highlight'>$NextDate</span></p>
+<p><strong>[F] Proxima revision recomendada:</strong> <span class='highlight'>$NextDate</span></p>
 </div>
 "@
 }
 
 function HtmlEnc { param($s) return [System.Web.HttpUtility]::HtmlEncode([string]$s) }
 
-# ─── EJECUCION ───────────────────────────────────────────────────────────────
+# --- EJECUCION ---------------------------------------------------------------
 
 Update-Stage 5 "Relevando sistema operativo"
 $osInfo     = Get-OsInfo
@@ -1092,13 +1092,13 @@ $record = [PSCustomObject]@{
 $markOk  = Set-RegistryMark -FP $fingerprint -Status $finalStatus -Sys $sysInfo -Disks $diskInfo
 $writeOk = Write-Record -P $pclafPaths -Rec $record
 
-# ─── BUILD HTML ─────────────────────────────────────────────────────────────
+# --- BUILD HTML -------------------------------------------------------------
 
 Update-Stage 96 "Generando reporte HTML $Modo"
 
 $nextDate   = (Get-Date).AddMonths($MesesMantenimiento).ToString("MMMM yyyy")
 $estadoCls  = if ($finalStatus.EstadoGeneral -match "EXCELENTE") { "ok" } elseif ($finalStatus.EstadoGeneral -match "OBSERVACIONES|REVISION") { "warn" } else { "bad" }
-$bannerEmoji= if ($finalStatus.EstadoGeneral -match "EXCELENTE") { "✅" } elseif ($finalStatus.EstadoGeneral -match "OBSERVACIONES") { "⚠️" } else { "🔴" }
+$bannerEmoji= if ($finalStatus.EstadoGeneral -match "EXCELENTE") { "[OK]" } elseif ($finalStatus.EstadoGeneral -match "OBSERVACIONES") { "[!]" } else { "[!]" }
 
 # Traffic lights
 $tlHw    = Get-TrafficLight "Hardware"    $hwAge.Equipo_Estado  (if($hwAge.Equipo_Estado -match "VIGENTE|USABLE"){if($hwAge.Equipo_Estado -match "USABLE"){"warn"}else{"ok"}}else{"bad"})
@@ -1133,11 +1133,11 @@ $CSS
     <img class="brand-logo" src="data:image/png;base64,$LogoB64" alt="PCLAF">
     <div>
       <div class="brand-title"><span class="w">PC</span><span class="r">LAF</span></div>
-      <div class="brand-sub">Servicio Técnico · Floresta, CABA · pclaf.com.ar</div>
+      <div class="brand-sub">Servicio Tecnico - Floresta, CABA - pclaf.com.ar</div>
     </div>
   </div>
-  <h1>Diagnóstico del equipo: $($env:COMPUTERNAME)</h1>
-  <div class="sub">Fecha: $(Get-Date -Format "dd/MM/yyyy HH:mm") · Técnico: $Tecnico · Modo: $($Modo.ToUpper())</div>
+  <h1>Diagnostico del equipo: $($env:COMPUTERNAME)</h1>
+  <div class="sub">Fecha: $(Get-Date -Format "dd/MM/yyyy HH:mm") - Tecnico: $Tecnico - Modo: $($Modo.ToUpper())</div>
 
   <!-- BANNER ESTADO -->
   <div class="banner $estadoCls">$bannerEmoji $($finalStatus.EstadoGeneral)</div>
@@ -1155,24 +1155,24 @@ $CSS
     <div class="kpi"><div class="kpi-l">RAM</div><div class="kpi-v">$($sysInfo.RAM_Total_GB) GB</div></div>
     <div class="kpi"><div class="kpi-l">Uso RAM actual</div><div class="kpi-v">$($perfInfo.RAM_Pct)%$ramBar</div></div>
     <div class="kpi"><div class="kpi-l">Disco principal</div><div class="kpi-v" style="font-size:13px">$(HtmlEnc (($diskInfo|Select-Object -First 1).Modelo))</div></div>
-    <div class="kpi"><div class="kpi-l">Temp. CPU</div><div class="kpi-v">$(($tempInfo|Select-Object -First 1).Celsius)°C</div></div>
+    <div class="kpi"><div class="kpi-l">Temp. CPU</div><div class="kpi-v">$(($tempInfo|Select-Object -First 1).Celsius) gradosC</div></div>
   </div>
 </div>
 
 "@
 
-# ── CLIENTE SECTION ──────────────────────────────────────────────────────────
+# -- CLIENTE SECTION ----------------------------------------------------------
 if ($ServicioRealizado -or $PrecioServicio) {
     $html += @"
 <section>
-<h2>🔧 Trabajo realizado hoy</h2>
+<h2>[S] Trabajo realizado hoy</h2>
 <div class="work-box">
   <div class="work-title">Servicio realizado por PCLAF</div>
   <div class="work-body">
     $(if($ServicioRealizado){"<p><strong>Descripcion:</strong> $(HtmlEnc $ServicioRealizado)</p>"})
     $(if($PrecioServicio){"<p><strong>Precio:</strong> $PrecioServicio</p>"})
     <p><strong>Fecha:</strong> $(Get-Date -Format "dd/MM/yyyy")</p>
-    <p><strong>Técnico:</strong> $Tecnico</p>
+    <p><strong>Tecnico:</strong> $Tecnico</p>
   </div>
 </div>
 </section>
@@ -1181,41 +1181,41 @@ if ($ServicioRealizado -or $PrecioServicio) {
 
 $html += @"
 <section>
-<h2>📋 Resumen del estado del equipo</h2>
+<h2>[I] Resumen del estado del equipo</h2>
 $(Get-ClientSummary -Status $finalStatus -HwAge $hwAge -Vols $volInfo -Disks $diskInfo -Perf $perfInfo -Temps $tempInfo -Rec $recs -NextDate $nextDate)
 </section>
 
 <section>
-<h2>✅ Recomendaciones</h2>
+<h2>[OK] Recomendaciones</h2>
 $(To-HtmlTable $recs)
 </section>
 
 <section>
-<h2>🌡️ Temperaturas del sistema</h2>
+<h2>[T] Temperaturas del sistema</h2>
 <div class="section-sub">Temperaturas reportadas por los sensores internos del equipo</div>
 $(To-HtmlTable $tempInfo)
 </section>
 
 <section>
-<h2>💻 Hardware del equipo</h2>
+<h2>[NB] Hardware del equipo</h2>
 <div class="cards">
   <div class="card$(if($hwAge.CPU_Estado -in @("VIEJO")){"bad"}elseif($hwAge.CPU_Estado -eq "USABLE"){"warn"}else{"ok"})">
-    <div class="card-icon">🔲</div>
+    <div class="card-icon">[HW]</div>
     <div class="card-title">Procesador (CPU)</div>
-    <div class="card-body">$(HtmlEnc $sysInfo.CPU)<br><strong>$(HtmlEnc $hwAge.CPU_Estado)</strong> - $(HtmlEnc $hwAge.CPU_Msg)<br>Núcleos: $($sysInfo.Cores) · Hilos: $($sysInfo.Hilos)</div>
+    <div class="card-body">$(HtmlEnc $sysInfo.CPU)<br><strong>$(HtmlEnc $hwAge.CPU_Estado)</strong> - $(HtmlEnc $hwAge.CPU_Msg)<br>Nucleos: $($sysInfo.Cores) - Hilos: $($sysInfo.Hilos)</div>
   </div>
   <div class="card$(if($hwAge.RAM_Estado -eq "INSUFICIENTE"){"bad"}elseif($hwAge.RAM_Estado -eq "JUSTA"){"warn"}else{"ok"})">
-    <div class="card-icon">🧩</div>
+    <div class="card-icon">[+]</div>
     <div class="card-title">Memoria RAM</div>
     <div class="card-body">$(HtmlEnc $sysInfo.RAM_Total_GB) GB instalados<br><strong>$(HtmlEnc $hwAge.RAM_Estado)</strong> - $(HtmlEnc $hwAge.RAM_Msg)</div>
   </div>
   <div class="card$(if($hwAge.Disco_Estado -match "LENTO"){"warn"}elseif($hwAge.Disco_Estado -eq "SIN DATOS"){""}else{"ok"})">
-    <div class="card-icon">💾</div>
+    <div class="card-icon">[D]</div>
     <div class="card-title">Almacenamiento</div>
     <div class="card-body"><strong>$(HtmlEnc $hwAge.Disco_Estado)</strong> - $(HtmlEnc $hwAge.Disco_Msg)</div>
   </div>
   <div class="card$(if($hwAge.GPU_Estado -eq "VIEJA"){"warn"}else{"ok"})">
-    <div class="card-icon">🎮</div>
+    <div class="card-icon">[G]</div>
     <div class="card-title">Placa de video (GPU)</div>
     <div class="card-body">$(HtmlEnc (($gpuInfo|Select-Object -First 1).GPU))<br><strong>$(HtmlEnc $hwAge.GPU_Estado)</strong> - $(HtmlEnc $hwAge.GPU_Msg)</div>
   </div>
@@ -1223,22 +1223,22 @@ $(To-HtmlTable $tempInfo)
 </section>
 
 <section>
-<h2>💽 Estado de los discos</h2>
+<h2>[D] Estado de los discos</h2>
 $(To-HtmlTable $diskInfo)
 </section>
 
 <section>
-<h2>📁 Espacio en unidades</h2>
+<h2>[F] Espacio en unidades</h2>
 $(To-HtmlTable $volInfo)
 </section>
 
 <section>
-<h2>📅 Próxima revisión</h2>
+<h2>[F] Proxima revision</h2>
 <div class="next-box">
   <div class="next-date">$nextDate</div>
   <div class="next-msg">
     <strong>Mantenimiento preventivo recomendado</strong><br>
-    El mantenimiento regular prolonga la vida útil del equipo y previene fallas.<br>
+    El mantenimiento regular prolonga la vida util del equipo y previene fallas.<br>
     Contactanos cuando sea el momento: <strong>11 4175-8129</strong>
   </div>
 </div>
@@ -1246,149 +1246,149 @@ $(To-HtmlTable $volInfo)
 
 "@
 
-# ── TECNICO-ONLY SECTIONS ────────────────────────────────────────────────────
+# -- TECNICO-ONLY SECTIONS ----------------------------------------------------
 if ($Modo -eq "tecnico") {
     $html += @"
 
 <section>
-<h2>🔬 Análisis de hardware - Detalle técnico</h2>
+<h2>[S] Analisis de hardware - Detalle tecnico</h2>
 $(To-HtmlTable @($hwAge))
 </section>
 
 <section>
-<h2>🖥️ Sistema operativo</h2>
+<h2>[PC] Sistema operativo</h2>
 $(To-HtmlTable @($osInfo))
 </section>
 
 <section>
-<h2>🔩 Resumen de hardware</h2>
+<h2>[HW] Resumen de hardware</h2>
 $(To-HtmlTable @($sysInfo))
 </section>
 
 <section>
-<h2>🖵 Placas de video</h2>
+<h2>[MON] Placas de video</h2>
 $(To-HtmlTable $gpuInfo)
 </section>
 
 <section>
-<h2>🧩 Módulos de RAM</h2>
+<h2>[+] Modulos de RAM</h2>
 $(To-HtmlTable $ramInfo)
 </section>
 
 <section>
-<h2>🔑 Activación de Windows</h2>
+<h2>[K] Activacion de Windows</h2>
 $(To-HtmlTable @($activInfo))
 </section>
 
 <section>
-<h2>⚡ Perfil de energía</h2>
+<h2>[!] Perfil de energia</h2>
 $(To-HtmlTable @($powerProf))
 </section>
 
 <section>
-<h2>🔒 Seguridad básica</h2>
+<h2>[S] Seguridad basica</h2>
 $(To-HtmlTable @($secInfo))
 </section>
 
 <section>
-<h2>🛡️ Windows Defender</h2>
+<h2>[AV] Windows Defender</h2>
 $(To-HtmlTable @($defInfo))
 </section>
 
 <section>
-<h2>🔋 Batería</h2>
+<h2>[BAT] Bateria</h2>
 $(To-HtmlTable $batInfo)
 </section>
 
 <section>
-<h2>🌐 Red</h2>
+<h2>[W] Red</h2>
 $(To-HtmlTable $netInfo)
 </section>
 
 <section>
-<h2>🪟 Windows Update</h2>
+<h2>[WIN] Windows Update</h2>
 $(To-HtmlTable @($wuInfo))
 </section>
 
 <section>
-<h2>🔧 TRIM de SSD</h2>
+<h2>[S] TRIM de SSD</h2>
 $(To-HtmlTable @($trimInfo))
 </section>
 
 <section>
-<h2>🧠 Integridad del sistema (SFC)</h2>
+<h2>[CPU] Integridad del sistema (SFC)</h2>
 $(To-HtmlTable @($integ))
 </section>
 
 <section>
-<h2>🚦 Rendimiento actual</h2>
+<h2>[SEM] Rendimiento actual</h2>
 $(To-HtmlTable @($perfInfo))
 </section>
 
 <section>
-<h2>⏱️ Historial de arranques</h2>
+<h2>[T] Historial de arranques</h2>
 $(To-HtmlTable $bootInfo)
 </section>
 
 <section>
-<h2>🔝 Top procesos</h2>
+<h2>[TOP] Top procesos</h2>
 $(To-HtmlTable $topProc)
 </section>
 
 <section>
-<h2>📡 Puertos abiertos (muestra)</h2>
+<h2>[R] Puertos abiertos (muestra)</h2>
 $(To-HtmlTable $openPorts)
 </section>
 
 <section>
-<h2>⚙️ Servicios de terceros activos</h2>
+<h2>[CFG] Servicios de terceros activos</h2>
 $(To-HtmlTable $nonMsSvcs)
 </section>
 
 <section>
-<h2>📆 Tareas programadas (no-Windows)</h2>
+<h2>[CAL] Tareas programadas (no-Windows)</h2>
 $(To-HtmlTable $schedTasks)
 </section>
 
 <section>
-<h2>🚀 Programas de inicio</h2>
+<h2>[RUN] Programas de inicio</h2>
 $(To-HtmlTable $startApps)
 </section>
 
 <section>
-<h2>🔌 Drivers (30 más antiguos)</h2>
-<div class="section-sub">Ordenados por fecha - los más antiguos primero</div>
+<h2>[E] Drivers (30 mas antiguos)</h2>
+<div class="section-sub">Ordenados por fecha - los mas antiguos primero</div>
 $(To-HtmlTable $driversInfo)
 </section>
 
 <section>
-<h2>⚠️ Errores de memoria RAM</h2>
+<h2>[!] Errores de memoria RAM</h2>
 $(To-HtmlTable $memErrs)
 </section>
 
 <section>
-<h2>📋 Eventos críticos (últimos 30 días)</h2>
+<h2>[I] Eventos criticos (ultimos 30 dias)</h2>
 $(To-HtmlTable $critEvts)
 </section>
 
 <section>
-<h2>🔎 Historial PCLAF - Comparativa</h2>
+<h2>[HIST] Historial PCLAF - Comparativa</h2>
 $(To-HtmlTable @($comparison))
 </section>
 
 <section>
-<h2>🧬 Fingerprint del equipo</h2>
-<div class="section-sub">Hash único basado en CPU, MB, RAM, disco y hostname. Detecta cambios de hardware.</div>
+<h2>[DNA] Fingerprint del equipo</h2>
+<div class="section-sub">Hash unico basado en CPU, MB, RAM, disco y hostname. Detecta cambios de hardware.</div>
 $(To-HtmlTable @($fingerprint))
 </section>
 
 <section>
-<h2>💿 Aplicaciones instaladas</h2>
+<h2>[CD] Aplicaciones instaladas</h2>
 $(To-HtmlTable $instApps)
 </section>
 
 <section>
-<h2>✔️ Marca PCLAF en el equipo</h2>
+<h2>[v] Marca PCLAF en el equipo</h2>
 $(To-HtmlTable @([PSCustomObject]@{
   Registro_WIndows = if($markOk){"OK - HKLM:\SOFTWARE\PCLAF\Diagnostics"}else{"No se pudo escribir"}
   JSON_Local = if($writeOk){"OK - C:\ProgramData\PCLAF\last.json"}else{"No se pudo escribir"}
@@ -1404,7 +1404,7 @@ $(To-HtmlTable @([PSCustomObject]@{
 $html += @"
 
 <div class="footer">
-  PCLAF · Servicio técnico · Campana 51, Floresta, CABA · 11 4175-8129 · pclaf.com.ar · @servicepclaf<br>
+  PCLAF - Servicio tecnico - Campana 51, Floresta, CABA - 11 4175-8129 - pclaf.com.ar - @servicepclaf<br>
   Reporte generado el $(Get-Date -Format "dd/MM/yyyy HH:mm") por $Tecnico - Script v$ScriptVersion ($Modo)
 </div>
 
@@ -1413,17 +1413,17 @@ $html += @"
 </html>
 "@
 
-# ─── GUARDAR ─────────────────────────────────────────────────────────────────
+# --- GUARDAR -----------------------------------------------------------------
 
 $outFile = Join-Path $BasePath "Reporte_${Modo}_$($env:COMPUTERNAME)_${FechaReporte}.html"
 $html | Set-Content -Path $outFile -Encoding UTF8
 
-Update-Stage 100 "¡Listo!"
+Update-Stage 100 "Listo!"
 Write-Progress -Activity "PCLAF Diagnostico" -Completed
 Write-Host ""
-Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  PCLAF Diagnostico v$ScriptVersion - $($Modo.ToUpper())" -ForegroundColor Cyan
-Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Reporte : $outFile" -ForegroundColor Green
 Write-Host "  Estado  : $($finalStatus.EstadoGeneral)" -ForegroundColor $(if($finalStatus.EstadoGeneral -match "EXCELENTE"){"Green"}elseif($finalStatus.EstadoGeneral -match "OBSERVACIONES"){"Yellow"}else{"Red"})
 Write-Host "  Marca   : $(if($markOk){"Guardada en registro"}else{"No se pudo guardar"})" -ForegroundColor $(if($markOk){"Green"}else{"Yellow"})
