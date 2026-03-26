@@ -533,6 +533,157 @@ function Get-CriticalEvents {
         @{N='Mensaje';E={$_.Message}}
 }
 
+function Get-BsodEvents {
+    $start = (Get-Date).AddDays(-60)
+    $results = @()
+
+    $queries = @(
+        @{ Log='System'; Provider='BugCheck'; Ids=@(1001) }
+        @{ Log='System'; Provider='Microsoft-Windows-WER-SystemErrorReporting'; Ids=@(1001) }
+    )
+
+    foreach ($q in $queries) {
+        foreach ($id in $q.Ids) {
+            try {
+                $events = Get-WinEvent -FilterHashtable @{
+                    LogName      = $q.Log
+                    ProviderName = $q.Provider
+                    Id           = $id
+                    StartTime    = $start
+                } -ErrorAction SilentlyContinue
+
+                foreach ($ev in $events) {
+                    $msg = [string]$ev.Message
+                    $code = "N/D"
+                    if ($msg -match 'bugcheck (was|code is)\s*[: ]?\s*(0x[0-9A-Fa-f]+)') { $code = $matches[2].ToUpper() }
+                    elseif ($msg -match '0x[0-9A-Fa-f]{8,16}') { $code = $matches[0].ToUpper() }
+
+                    $results += [PSCustomObject]@{
+                        Fecha    = $ev.TimeCreated
+                        Origen   = $ev.ProviderName
+                        Id       = $ev.Id
+                        Codigo   = $code
+                        Mensaje  = (($msg -split "`r?`n")[0]).Trim()
+                    }
+                }
+            } catch {}
+        }
+    }
+
+    if (-not $results) {
+        return [PSCustomObject]@{ Fecha="Sin BSOD recientes"; Origen="N/D"; Id="N/D"; Codigo="N/D"; Mensaje="No se detectaron pantallazos azules en los ultimos 60 dias" }
+    }
+
+    $results | Sort-Object Fecha -Descending | Select-Object -Unique Fecha, Origen, Id, Codigo, Mensaje | Select-Object -First 10
+}
+
+function Get-UnexpectedShutdowns {
+    $start = (Get-Date).AddDays(-30)
+    $results = @()
+    $queries = @(
+        @{ Log='System'; Provider='Microsoft-Windows-Kernel-Power'; Ids=@(41) }
+        @{ Log='System'; Provider='EventLog'; Ids=@(6008) }
+    )
+
+    foreach ($q in $queries) {
+        foreach ($id in $q.Ids) {
+            try {
+                $events = Get-WinEvent -FilterHashtable @{
+                    LogName      = $q.Log
+                    ProviderName = $q.Provider
+                    Id           = $id
+                    StartTime    = $start
+                } -ErrorAction SilentlyContinue
+                foreach ($ev in $events) {
+                    $results += [PSCustomObject]@{
+                        Fecha   = $ev.TimeCreated
+                        Origen  = $ev.ProviderName
+                        Id      = $ev.Id
+                        Mensaje = (([string]$ev.Message -split "`r?`n")[0]).Trim()
+                    }
+                }
+            } catch {}
+        }
+    }
+
+    if (-not $results) {
+        return [PSCustomObject]@{ Fecha="Sin reinicios inesperados"; Origen="N/D"; Id="N/D"; Mensaje="No se detectaron apagados o reinicios bruscos en los ultimos 30 dias" }
+    }
+
+    $results | Sort-Object Fecha -Descending | Select-Object -First 10
+}
+
+function Get-WheaSummary {
+    $start = (Get-Date).AddDays(-60)
+    try {
+        $events = Get-WinEvent -FilterHashtable @{
+            LogName='System'; ProviderName='Microsoft-Windows-WHEA-Logger'; StartTime=$start
+        } -ErrorAction SilentlyContinue
+
+        if (-not $events) {
+            return [PSCustomObject]@{ Fecha="Sin errores WHEA"; Id="N/D"; Severidad="N/D"; Mensaje="No se detectaron errores de hardware reportados por Windows" }
+        }
+
+        $events | Sort-Object TimeCreated -Descending | Select-Object -First 10 `
+            @{N='Fecha';E={$_.TimeCreated}},
+            @{N='Id';E={$_.Id}},
+            @{N='Severidad';E={$_.LevelDisplayName}},
+            @{N='Mensaje';E={ (([string]$_.Message -split "`r?`n")[0]).Trim() }}
+    } catch {
+        [PSCustomObject]@{ Fecha="No disponible"; Id="N/D"; Severidad="N/D"; Mensaje="No se pudo consultar WHEA" }
+    }
+}
+
+function Get-DiskEventSummary {
+    $start = (Get-Date).AddDays(-30)
+    $providers = @('Disk','Ntfs','storahci','stornvme','iaStorA','iaStorAC')
+    $rows = @()
+
+    foreach ($provider in $providers) {
+        try {
+            $events = Get-WinEvent -FilterHashtable @{
+                LogName='System'; ProviderName=$provider; StartTime=$start
+            } -ErrorAction SilentlyContinue
+            foreach ($ev in $events) {
+                $rows += [PSCustomObject]@{
+                    Fecha   = $ev.TimeCreated
+                    Origen  = $ev.ProviderName
+                    Id      = $ev.Id
+                    Nivel   = $ev.LevelDisplayName
+                    Mensaje = (([string]$ev.Message -split "`r?`n")[0]).Trim()
+                }
+            }
+        } catch {}
+    }
+
+    if (-not $rows) {
+        return [PSCustomObject]@{ Fecha="Sin errores de disco"; Origen="N/D"; Id="N/D"; Nivel="N/D"; Mensaje="No se detectaron errores de disco o controlador en los ultimos 30 dias" }
+    }
+
+    $rows | Sort-Object Fecha -Descending | Select-Object -First 12
+}
+
+function Get-ProblemDevices {
+    try {
+        $devices = Get-CimInstance Win32_PnPEntity | Where-Object {
+            $_.ConfigManagerErrorCode -ne $null -and $_.ConfigManagerErrorCode -ne 0
+        } | Select-Object `
+            @{N='Dispositivo';E={ Safe $_.Name }},
+            @{N='Clase';E={ Safe $_.PNPClass }},
+            @{N='ErrorCode';E={ Safe $_.ConfigManagerErrorCode }},
+            @{N='Fabricante';E={ Safe $_.Manufacturer }},
+            @{N='PNPDeviceID';E={ Safe $_.PNPDeviceID }}
+
+        if (-not $devices) {
+            return [PSCustomObject]@{ Dispositivo="Sin dispositivos con error"; Clase="N/D"; ErrorCode="0"; Fabricante="N/D"; PNPDeviceID="N/D" }
+        }
+
+        $devices
+    } catch {
+        [PSCustomObject]@{ Dispositivo="No disponible"; Clase="N/D"; ErrorCode="N/D"; Fabricante="N/D"; PNPDeviceID="N/D" }
+    }
+}
+
 function Get-MemoryErrors {
     try {
         $errs = Get-WinEvent -FilterHashtable @{
@@ -731,7 +882,7 @@ function Compare-Records {
 }
 
 function Get-FinalAssessment {
-    param($Disks, $Vols, $Events, $HwAge, $Perf, $Defender)
+    param($Disks, $Vols, $Events, $HwAge, $Perf, $Defender, $Bsod, $Shutdowns, $Whea, $DiskEvents, $ProblemDevices)
     $estado = "EXCELENTE"; $motivos = @()
 
     if ($Disks | Where-Object { $_.Estado -eq "REEMPLAZAR" }) { $estado="REQUIERE ATENCION URGENTE"; $motivos += "Disco con fallo inminente" }
@@ -746,6 +897,31 @@ function Get-FinalAssessment {
     if ($critEvts) {
         if ($estado -eq "EXCELENTE") { $estado="CON OBSERVACIONES" }
         $motivos += "Eventos de advertencia en Windows"
+    }
+
+    if ($Bsod | Where-Object { $_.Fecha -notmatch "^Sin BSOD recientes" }) {
+        $estado = "REQUIERE REVISION"
+        $motivos += "Pantallazos azules recientes"
+    }
+
+    if ($Shutdowns | Where-Object { $_.Fecha -notmatch "^Sin reinicios inesperados" }) {
+        if ($estado -eq "EXCELENTE") { $estado="CON OBSERVACIONES" }
+        $motivos += "Reinicios o apagados inesperados"
+    }
+
+    if ($Whea | Where-Object { $_.Fecha -notmatch "^Sin errores WHEA" -and $_.Fecha -notmatch "^No disponible" }) {
+        $estado = "REQUIERE REVISION"
+        $motivos += "Errores de hardware reportados por Windows"
+    }
+
+    if ($DiskEvents | Where-Object { $_.Fecha -notmatch "^Sin errores de disco" }) {
+        if ($estado -eq "EXCELENTE") { $estado="CON OBSERVACIONES" }
+        $motivos += "Errores recientes de disco o controlador"
+    }
+
+    if ($ProblemDevices | Where-Object { $_.ErrorCode -ne "0" -and $_.ErrorCode -ne "N/D" }) {
+        if ($estado -eq "EXCELENTE") { $estado="CON OBSERVACIONES" }
+        $motivos += "Dispositivos con error o sin driver correcto"
     }
 
     if ($HwAge.Equipo_Estado -eq "PLATAFORMA VIEJA") {
@@ -770,7 +946,7 @@ function Get-FinalAssessment {
 }
 
 function Get-Recommendations {
-    param($Disks, $Vols, $Events, $Perf, $HwAge, $Integrity, $Def, $Trim)
+    param($Disks, $Vols, $Events, $Perf, $HwAge, $Integrity, $Def, $Trim, $Bsod, $Shutdowns, $Whea, $DiskEvents, $ProblemDevices)
     $items = @()
     if ($Disks | Where-Object { $_.Estado -eq "REEMPLAZAR" }) { $items += [PSCustomObject]@{Prioridad="URGENTE";Accion="Reemplazar disco";Motivo="SMART indica falla inminente - riesgo de perder datos"} }
     if ($Disks | Where-Object { $_.Estado -eq "MAL" }) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Revisar disco";Motivo="Windows reporta problema de salud en el disco"} }
@@ -784,8 +960,83 @@ function Get-Recommendations {
     if ($Integrity.Estado -match "CORRUPCION") { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Correr SFC y DISM";Motivo="Se detectaron archivos del sistema danados"} }
     if ($Def.Activo -eq $false -or $Def.TiempoReal -eq $false) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Activar Windows Defender";Motivo="La proteccion en tiempo real no esta activa"} }
     if ($Trim.TRIM -eq "DESACTIVADO") { $items += [PSCustomObject]@{Prioridad="BAJA";Accion="Activar TRIM";Motivo="TRIM desactivado puede reducir vida util del SSD"} }
+    if ($Bsod | Where-Object { $_.Codigo -ne "N/D" -or $_.Mensaje -notmatch "No se detectaron" }) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Revisar causa de pantallazos azules";Motivo="Windows registro errores graves tipo BSOD en los ultimos 60 dias"} }
+    if ($Shutdowns | Where-Object { $_.Fecha -notmatch "^Sin reinicios inesperados" }) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Diagnosticar reinicios o apagados bruscos";Motivo="Se detectaron apagados inesperados que pueden venir de hardware, energia o drivers"} }
+    if ($Whea | Where-Object { $_.Fecha -notmatch "^Sin errores WHEA" -and $_.Fecha -notmatch "^No disponible" }) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Revisar hardware por errores WHEA";Motivo="Windows reporto errores de hardware de bajo nivel"} }
+    if ($DiskEvents | Where-Object { $_.Fecha -notmatch "^Sin errores de disco" }) { $items += [PSCustomObject]@{Prioridad="ALTA";Accion="Revisar eventos de disco y controlador";Motivo="Se detectaron errores de disco, NTFS o controlador de almacenamiento"} }
+    if ($ProblemDevices | Where-Object { $_.ErrorCode -ne "0" -and $_.ErrorCode -ne "N/D" }) { $items += [PSCustomObject]@{Prioridad="MEDIA";Accion="Corregir dispositivos con error";Motivo="Hay dispositivos de Windows con controlador faltante o estado anormal"} }
     if (-not $items) { $items += [PSCustomObject]@{Prioridad="NINGUNA";Accion="Sin acciones urgentes";Motivo="El equipo esta en buen estado"} }
-    $items | Sort-Object { @{"URGENTE"=0;"ALTA"=1;"MEDIA"=2;"BAJA"=3;"NINGUNA"=4}[$_.Prioridad] }
+    $items | Sort-Object { @{"URGENTE"=0;"ALTA"=1;"MEDIA"=2;"BAJA"=3;"NINGUNA"=4}[$_.Prioridad] }, Accion -Unique
+}
+
+function Get-ClientIssues {
+    param($Disks, $Vols, $Perf, $Temps, $Integrity, $Def, $HwAge, $Bsod, $Shutdowns, $Whea, $DiskEvents, $ProblemDevices)
+    $items = @()
+
+    if ($Disks | Where-Object { $_.Estado -eq "REEMPLAZAR" }) {
+        $items += [PSCustomObject]@{ Prioridad="URGENTE"; Problema="Disco con riesgo de falla"; Impacto="Puede perder archivos o dejar de iniciar"; Accion="Hacer backup y reemplazar el disco cuanto antes" }
+    } elseif ($Disks | Where-Object { $_.Estado -eq "MAL" }) {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="Disco con problemas de salud"; Impacto="Puede causar lentitud, cuelgues o errores"; Accion="Revisar estado del disco y planificar reemplazo" }
+    }
+
+    if ($DiskEvents | Where-Object { $_.Fecha -notmatch "^Sin errores de disco" }) {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="Errores de disco o controlador"; Impacto="Puede provocar congelamientos, archivos corruptos o fallas al arrancar"; Accion="Revisar almacenamiento, cables, controladores o disco del sistema" }
+    }
+
+    if ($Bsod | Where-Object { $_.Fecha -notmatch "^Sin BSOD recientes" }) {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="Pantallazos azules recientes"; Impacto="El sistema tuvo fallos graves y puede seguir inestable"; Accion="Diagnosticar drivers, RAM, disco y hardware asociado" }
+    }
+
+    if ($Shutdowns | Where-Object { $_.Fecha -notmatch "^Sin reinicios inesperados" }) {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="Reinicios o apagados inesperados"; Impacto="Puede haber problema de energia, temperatura, drivers o hardware"; Accion="Revisar estabilidad electrica y componentes criticos" }
+    }
+
+    if ($Whea | Where-Object { $_.Fecha -notmatch "^Sin errores WHEA" -and $_.Fecha -notmatch "^No disponible" }) {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="Errores de hardware reportados por Windows"; Impacto="Puede indicar fallas en CPU, RAM, motherboard, GPU o PCIe"; Accion="Hacer diagnostico tecnico de hardware" }
+    }
+
+    if ($ProblemDevices | Where-Object { $_.ErrorCode -ne "0" -and $_.ErrorCode -ne "N/D" }) {
+        $items += [PSCustomObject]@{ Prioridad="MEDIA"; Problema="Dispositivos con error o drivers faltantes"; Impacto="Puede haber funciones que no trabajen bien"; Accion="Instalar o corregir controladores del hardware afectado" }
+    }
+
+    if ($Vols | Where-Object { $_.Alerta -eq "CRITICO" }) {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="Disco casi lleno"; Impacto="Windows puede fallar, trabarse o no actualizar"; Accion="Liberar espacio de forma urgente" }
+    } elseif ($Vols | Where-Object { $_.Alerta -eq "ALTO" }) {
+        $items += [PSCustomObject]@{ Prioridad="MEDIA"; Problema="Poco espacio disponible"; Impacto="Afecta rendimiento y mantenimiento del sistema"; Accion="Liberar archivos o ampliar almacenamiento" }
+    }
+
+    try {
+        if ($Perf.RAM_Pct -ne "N/D" -and [double]$Perf.RAM_Pct -ge 85) {
+            $items += [PSCustomObject]@{ Prioridad="MEDIA"; Problema="Memoria RAM muy exigida"; Impacto="Puede generar lentitud y cuelgues"; Accion="Revisar consumo o ampliar memoria" }
+        }
+    } catch {}
+
+    if ($HwAge.RAM_Estado -eq "INSUFICIENTE") {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="RAM insuficiente para uso actual"; Impacto="El equipo puede sentirse lento aun sin errores visibles"; Accion="Ampliar la memoria a 16 GB o mas" }
+    }
+
+    $hotZone = $Temps | Where-Object { $_.Estado -in @("ALTO","CRITICO") }
+    if ($hotZone) {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="Temperaturas elevadas"; Impacto="Puede causar apagados, ruido y menor vida util"; Accion="Hacer limpieza interna y revisar refrigeracion" }
+    }
+
+    if ($Integrity.Estado -match "CORRUPCION") {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="Archivos del sistema danados"; Impacto="Puede generar errores de Windows y fallos raros"; Accion="Reparar Windows con herramientas del sistema" }
+    }
+
+    if ($Def.Activo -eq $false -or $Def.TiempoReal -eq $false) {
+        $items += [PSCustomObject]@{ Prioridad="ALTA"; Problema="Proteccion antivirus inactiva"; Impacto="El equipo queda mas expuesto a amenazas"; Accion="Activar o reconfigurar la proteccion de Windows" }
+    }
+
+    if ($HwAge.Equipo_Estado -eq "PLATAFORMA VIEJA") {
+        $items += [PSCustomObject]@{ Prioridad="MEDIA"; Problema="Hardware antiguo"; Impacto="Aunque funcione, puede limitar rendimiento y compatibilidad"; Accion="Evaluar mejora de plataforma o reemplazo de equipo" }
+    }
+
+    if (-not $items) {
+        return [PSCustomObject]@{ Prioridad="NINGUNA"; Problema="Sin errores importantes detectados"; Impacto="El equipo no muestra fallas relevantes en esta revision"; Accion="Mantener controles preventivos periodicos" }
+    }
+
+    $items | Sort-Object { @{"URGENTE"=0;"ALTA"=1;"MEDIA"=2;"BAJA"=3;"NINGUNA"=4}[$_.Prioridad] }, Problema -Unique
 }
 
 function Set-MaintenanceTask { param([int]$Meses)
@@ -1235,7 +1486,7 @@ function Get-RamBar {
 }
 
 function Get-ClientSummary {
-    param($Status, $HwAge, $Vols, $Disks, $Perf, $Temps, $Rec, $NextDate)
+    param($Status, $HwAge, $Vols, $Disks, $Perf, $Temps, $Rec, $NextDate, $Issues, $Bsod, $Shutdowns)
     $estado = $Status.EstadoGeneral
     $estadoCls = if ($estado -match "EXCELENTE") { "ok" } elseif ($estado -match "OBSERVACIONES|REVISION") { "warn" } else { "bad" }
     $emoji = if ($estado -match "EXCELENTE") { "&#9989;" } elseif ($estado -match "OBSERVACIONES") { "&#9888;" } else { "&#128308;" }
@@ -1259,7 +1510,9 @@ function Get-ClientSummary {
     else { $spaceMsg = "&#128190; El espacio en disco esta bien." }
 
     $urgentRec = ($Rec | Where-Object { $_.Prioridad -in @("URGENTE","ALTA") })
+    $issueCount = ($Issues | Where-Object { $_.Prioridad -ne "NINGUNA" } | Measure-Object).Count
     $recMsg = if ($urgentRec) { "Se identificaron " + ($urgentRec | Measure-Object).Count + " punto(s) que requieren atencion." } else { "No hay acciones urgentes pendientes." }
+    $crashMsg = if ($Bsod | Where-Object { $_.Fecha -notmatch "^Sin BSOD recientes" }) { "&#128308; Se registraron pantallazos azules recientes." } elseif ($Shutdowns | Where-Object { $_.Fecha -notmatch "^Sin reinicios inesperados" }) { "&#9888; Se detectaron reinicios o apagados inesperados." } else { "&#9989; No se detectaron fallos graves recientes del sistema." }
 
     return @"
 <div class='resumen-box'>
@@ -1269,9 +1522,11 @@ function Get-ClientSummary {
 <p>$ramMsg</p>
 <p>$tempMsg</p>
 <p>$spaceMsg</p>
+<p>$crashMsg</p>
 <br>
 <p><strong>&#128295; Evaluacion del hardware:</strong> $(HtmlEnc $HwAge.Equipo_Msg)</p>
 <br>
+<p><strong>&#128680; Problemas detectados:</strong> $issueCount</p>
 <p><strong>&#128203; Recomendaciones:</strong> $recMsg</p>
 <br>
 <p><strong>&#128197; Proxima revision recomendada:</strong> <span class='highlight'>$NextDate</span></p>
@@ -1315,6 +1570,10 @@ $topProc    = Get-TopProcesses
 Update-Stage 58 "Revisando arranque y eventos de Windows"
 $bootInfo   = Get-BootTime
 $critEvts   = Get-CriticalEvents
+$bsodInfo   = Get-BsodEvents
+$shutdownInfo = Get-UnexpectedShutdowns
+$wheaInfo   = Get-WheaSummary
+$diskEvtInfo = Get-DiskEventSummary
 $memErrs    = Get-MemoryErrors
 $integ      = Get-IntegrityStatus
 
@@ -1325,6 +1584,7 @@ $openPorts  = Get-OpenPorts
 $nonMsSvcs  = Get-NonMsServices
 $schedTasks = Get-CustomScheduledTasks
 $driversInfo= Get-DriversInfo
+$problemDevices = Get-ProblemDevices
 
 Update-Stage 78 "Leyendo marca previa y comparando hardware"
 $pclafPaths = Get-PCLAFPaths
@@ -1334,8 +1594,9 @@ $hwAge      = Get-HardwareAge -Sys $sysInfo -Gpu $gpuInfo -Disks $diskInfo -Ram 
 $comparison = Compare-Records -Prev $prevRec -FP $fingerprint -Sys $sysInfo -Disks $diskInfo -Gpu $gpuInfo
 
 Update-Stage 86 "Calculando estado final y recomendaciones"
-$finalStatus= Get-FinalAssessment -Disks $diskInfo -Vols $volInfo -Events $critEvts -HwAge $hwAge -Perf $perfInfo -Defender $defInfo
-$recs       = Get-Recommendations -Disks $diskInfo -Vols $volInfo -Events $critEvts -Perf $perfInfo -HwAge $hwAge -Integrity $integ -Def $defInfo -Trim $trimInfo
+    $finalStatus= Get-FinalAssessment -Disks $diskInfo -Vols $volInfo -Events $critEvts -HwAge $hwAge -Perf $perfInfo -Defender $defInfo -Bsod $bsodInfo -Shutdowns $shutdownInfo -Whea $wheaInfo -DiskEvents $diskEvtInfo -ProblemDevices $problemDevices
+$recs       = Get-Recommendations -Disks $diskInfo -Vols $volInfo -Events $critEvts -Perf $perfInfo -HwAge $hwAge -Integrity $integ -Def $defInfo -Trim $trimInfo -Bsod $bsodInfo -Shutdowns $shutdownInfo -Whea $wheaInfo -DiskEvents $diskEvtInfo -ProblemDevices $problemDevices
+$clientIssues = Get-ClientIssues -Disks $diskInfo -Vols $volInfo -Perf $perfInfo -Temps $tempInfo -Integrity $integ -Def $defInfo -HwAge $hwAge -Bsod $bsodInfo -Shutdowns $shutdownInfo -Whea $wheaInfo -DiskEvents $diskEvtInfo -ProblemDevices $problemDevices
 $maintTask  = Set-MaintenanceTask -Meses $MesesMantenimiento
 
 Update-Stage 92 "Guardando marca PCLAF en el equipo"
@@ -1345,7 +1606,9 @@ $record = [PSCustomObject]@{
     SystemInfo=$osInfo; SystemSummary=$sysInfo; GPU=$gpuInfo; RAM=$ramInfo
     Discos=$diskInfo; Volumenes=$volInfo; Rendimiento=$perfInfo
     Temperaturas=$tempInfo; Seguridad=$secInfo; Defender=$defInfo
-    HardwareAge=$hwAge; Recomendaciones=$recs
+    HardwareAge=$hwAge; Recomendaciones=$recs; ProblemasCliente=$clientIssues
+    BSOD=$bsodInfo; ReiniciosInesperados=$shutdownInfo; WHEA=$wheaInfo
+    EventosDisco=$diskEvtInfo; DispositivosConProblemas=$problemDevices
 }
 $markOk  = Set-RegistryMark -FP $fingerprint -Status $finalStatus -Sys $sysInfo -Disks $diskInfo
 $writeOk = Write-Record -P $pclafPaths -Rec $record
@@ -1444,7 +1707,20 @@ if ($ServicioRealizado -or $PrecioServicio) {
 $html += @"
 <section>
 <h2>&#128203; Resumen del estado del equipo</h2>
-$(Get-ClientSummary -Status $finalStatus -HwAge $hwAge -Vols $volInfo -Disks $diskInfo -Perf $perfInfo -Temps $tempInfo -Rec $recs -NextDate $nextDate)
+$(Get-ClientSummary -Status $finalStatus -HwAge $hwAge -Vols $volInfo -Disks $diskInfo -Perf $perfInfo -Temps $tempInfo -Rec $recs -NextDate $nextDate -Issues $clientIssues -Bsod $bsodInfo -Shutdowns $shutdownInfo)
+</section>
+
+<section>
+<h2>&#128680; Problemas detectados y que conviene corregir</h2>
+<div class="section-sub">Resumen claro de errores y condiciones que deberia revisar el tecnico</div>
+$(To-HtmlTable $clientIssues)
+</section>
+
+<section>
+<h2>&#128565; Fallos graves recientes del sistema</h2>
+<div class="section-sub">Pantallazos azules y reinicios inesperados detectados por Windows</div>
+$(To-HtmlTable $bsodInfo)
+$(To-HtmlTable $shutdownInfo)
 </section>
 
 <section>
@@ -1631,6 +1907,31 @@ $(To-HtmlTable $memErrs)
 <section>
 <h2>&#128680; Eventos criticos (30 dias)</h2>
 $(To-HtmlTable $critEvts)
+</section>
+
+<section>
+<h2>&#128565; Pantallazos azules (BSOD)</h2>
+$(To-HtmlTable $bsodInfo)
+</section>
+
+<section>
+<h2>&#9888; Reinicios inesperados</h2>
+$(To-HtmlTable $shutdownInfo)
+</section>
+
+<section>
+<h2>&#129520; Errores WHEA de hardware</h2>
+$(To-HtmlTable $wheaInfo)
+</section>
+
+<section>
+<h2>&#128190; Errores de disco y controlador</h2>
+$(To-HtmlTable $diskEvtInfo)
+</section>
+
+<section>
+<h2>&#128421; Dispositivos con problemas</h2>
+$(To-HtmlTable $problemDevices)
 </section>
 
 <section>
