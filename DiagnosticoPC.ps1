@@ -26,7 +26,13 @@ param(
     [int]$MesesMantenimiento = 6,
     [switch]$SistemaInstaladoPorPCLAF,
     [string]$ServicioRealizado = "",
-    [string]$PrecioServicio = ""
+    [string]$PrecioServicio = "",
+    [string]$ReparacionId = "",
+    [string]$SupabaseUrl = "",
+    [string]$SupabaseAnonKey = "",
+    [ValidateSet("manual","antes","despues","tecnico")]
+    [string]$MomentoReporte = "manual",
+    [switch]$SubirASupabase
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -57,6 +63,94 @@ function To-DT {
 }
 
 function Round2 { param($v) try { return [math]::Round([double]$v, 2) } catch { return "N/D" } }
+
+function Get-ReportSlotInfo {
+    param([string]$ModoActual, [string]$MomentoActual)
+    if ($ModoActual -eq "tecnico") {
+        return [PSCustomObject]@{
+            SlotName       = "tecnico"
+            FileName       = "auto_tecnico.html"
+            HtmlCliente    = $null
+            DisplayName    = "Reporte tecnico"
+        }
+    }
+
+    switch ($MomentoActual) {
+        "antes" {
+            return [PSCustomObject]@{
+                SlotName       = "cliente_antes"
+                FileName       = "auto_cliente_antes.html"
+                HtmlCliente    = $null
+                DisplayName    = "Reporte cliente antes"
+            }
+        }
+        "despues" {
+            return [PSCustomObject]@{
+                SlotName       = "cliente_despues"
+                FileName       = "auto_cliente_despues.html"
+                HtmlCliente    = $null
+                DisplayName    = "Reporte cliente despues"
+            }
+        }
+        default {
+            return [PSCustomObject]@{
+                SlotName       = "cliente_manual"
+                FileName       = "auto_cliente_manual.html"
+                HtmlCliente    = $null
+                DisplayName    = "Reporte cliente"
+            }
+        }
+    }
+}
+
+function Invoke-SupabaseReportUpload {
+    param(
+        [string]$BaseUrl,
+        [string]$AnonKey,
+        [string]$RepairId,
+        [string]$HtmlFull,
+        [string]$HtmlClient,
+        [string]$FileName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($BaseUrl) -or [string]::IsNullOrWhiteSpace($AnonKey) -or [string]::IsNullOrWhiteSpace($RepairId)) {
+        return [PSCustomObject]@{ Ok=$false; Message="Faltan parametros de Supabase o reparacion" }
+    }
+
+    $base = $BaseUrl.TrimEnd('/')
+    $headers = @{
+        apikey        = $AnonKey
+        Authorization = "Bearer $AnonKey"
+        "Content-Type" = "application/json"
+        Prefer        = "return=representation"
+    }
+
+    $payload = @{
+        reparacion_id = $RepairId
+        html_content  = $HtmlFull
+        html_cliente  = $HtmlClient
+        filename      = $FileName
+    } | ConvertTo-Json -Depth 10
+
+    try {
+        $existingUrl = "$base/rest/v1/reportes?reparacion_id=eq.$RepairId&filename=eq.$([uri]::EscapeDataString($FileName))&select=id&limit=1"
+        $existing = Invoke-RestMethod -Method Get -Uri $existingUrl -Headers $headers
+        if ($existing -and $existing.Count -gt 0) {
+            $id = $existing[0].id
+            $patchUrl = "$base/rest/v1/reportes?id=eq.$id"
+            $null = Invoke-RestMethod -Method Patch -Uri $patchUrl -Headers $headers -Body $payload
+            return [PSCustomObject]@{ Ok=$true; Message="Reporte actualizado en Supabase"; Id=$id }
+        }
+
+        $postUrl = "$base/rest/v1/reportes"
+        $created = Invoke-RestMethod -Method Post -Uri $postUrl -Headers $headers -Body $payload
+        $newId = $null
+        try { $newId = $created[0].id } catch {}
+        return [PSCustomObject]@{ Ok=$true; Message="Reporte subido a Supabase"; Id=$newId }
+    } catch {
+        return [PSCustomObject]@{ Ok=$false; Message=$_.Exception.Message }
+    }
+}
 
 # --- RECOLECCION DE DATOS ---------------------------------------------------
 
@@ -1981,6 +2075,14 @@ $html += @"
 $outFile = Join-Path $BasePath "Reporte_${Modo}_$($env:COMPUTERNAME)_${FechaReporte}.html"
 $html | Set-Content -Path $outFile -Encoding UTF8
 
+$uploadResult = $null
+if ($SubirASupabase -and $ReparacionId -and $SupabaseUrl -and $SupabaseAnonKey) {
+    $slotInfo = Get-ReportSlotInfo -ModoActual $Modo -MomentoActual $MomentoReporte
+    $htmlClienteSubida = if ($Modo -eq "cliente") { $html } else { $null }
+    Update-Stage 98 "Subiendo reporte a Supabase"
+    $uploadResult = Invoke-SupabaseReportUpload -BaseUrl $SupabaseUrl -AnonKey $SupabaseAnonKey -RepairId $ReparacionId -HtmlFull $html -HtmlClient $htmlClienteSubida -FileName $slotInfo.FileName
+}
+
 Update-Stage 100 "Listo!"
 Write-Progress -Activity "PCLAF Diagnostico" -Completed
 Write-Host ""
@@ -1990,6 +2092,9 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Reporte : $outFile" -ForegroundColor Green
 Write-Host "  Estado  : $($finalStatus.EstadoGeneral)" -ForegroundColor $(if($finalStatus.EstadoGeneral -match "EXCELENTE"){"Green"}elseif($finalStatus.EstadoGeneral -match "OBSERVACIONES"){"Yellow"}else{"Red"})
 Write-Host "  Marca   : $(if($markOk){"Guardada en registro"}else{"No se pudo guardar"})" -ForegroundColor $(if($markOk){"Green"}else{"Yellow"})
+if ($uploadResult) {
+    Write-Host "  Subida  : $($uploadResult.Message)" -ForegroundColor $(if($uploadResult.Ok){"Green"}else{"Yellow"})
+}
 Write-Host ""
 
 # Abrir el reporte automaticamente
