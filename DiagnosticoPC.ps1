@@ -1459,6 +1459,89 @@ tbody tr:hover td{background:rgba(255,255,255,.025)}
 .resumen-box .alert{color:var(--bad);font-weight:700}
 .resumen-box .note{color:var(--warn);font-weight:700}
 
+.meter-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:12px;
+  margin:14px 0 4px;
+}
+.meter{
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));
+  border:1px solid var(--b1);
+  border-radius:16px;
+  padding:14px 14px 12px;
+  box-shadow:0 12px 34px rgba(0,0,0,.2);
+}
+.meter-top{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.meter-label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  color:var(--txt3);
+  font-weight:800;
+}
+.meter-value{
+  font-size:18px;
+  font-weight:900;
+  color:#fff;
+}
+.meter-track{
+  height:10px;
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.04);
+}
+.meter-fill{
+  height:100%;
+  border-radius:999px;
+  box-shadow:0 0 16px currentColor;
+}
+.meter-fill.ok{background:linear-gradient(90deg,#00d4a0,#51f0bf);color:#00d4a0}
+.meter-fill.warn{background:linear-gradient(90deg,#f5a623,#ffd166);color:#f5a623}
+.meter-fill.bad{background:linear-gradient(90deg,#ff4d6a,#ff7a7a);color:#ff4d6a}
+.meter-note{
+  margin-top:9px;
+  font-size:11px;
+  color:var(--txt2);
+  line-height:1.5;
+}
+
+.section-accent{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--b1);
+}
+.section-accent .sa-kicker{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  color:var(--red2);
+  font-weight:800;
+}
+.section-accent .sa-title{
+  font-size:18px;
+  font-weight:900;
+  color:#fff;
+}
+.section-accent .sa-line{
+  flex:1;
+  height:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--red),transparent);
+  opacity:.6;
+}
+
 /* ── TRABAJO HECHO ─────────────────────────────────────────── */
 .work-box{
   background:var(--blue2);border:1px solid var(--blue3);
@@ -1577,6 +1660,30 @@ function Get-RamBar {
     $cls = if ($Pct -ge 85) { "bad" } elseif ($Pct -ge 65) { "warn" } else { "ok" }
     $w   = [math]::Min($Pct, 100)
     return "<div class='bar-wrap'><div class='bar-fill $cls' style='width:$($w)%'></div></div>"
+}
+
+function Get-MeterCard {
+    param(
+        [string]$Label,
+        [double]$Percent,
+        [string]$Display,
+        [string]$Tone = "ok",
+        [string]$Hint = ""
+    )
+    $pct = [math]::Max(0, [math]::Min(100, [math]::Round($Percent, 0)))
+    $safeLabel = HtmlEnc $Label
+    $safeDisplay = HtmlEnc $Display
+    $safeHint = HtmlEnc $Hint
+    return @"
+<div class='meter $Tone'>
+  <div class='meter-top'>
+    <div class='meter-label'>$safeLabel</div>
+    <div class='meter-value'>$safeDisplay</div>
+  </div>
+  <div class='meter-track'><div class='meter-fill $Tone' style='width:${pct}%'></div></div>
+  <div class='meter-note'>$safeHint</div>
+</div>
+"@
 }
 
 function Get-ClientSummary {
@@ -1727,6 +1834,33 @@ $tlSpace = Get-TrafficLight "Espacio"     (($volInfo|Sort-Object Uso_Pct -Descen
 $ramBarPct = 0; try { $ramBarPct = [double]$perfInfo.RAM_Pct } catch {}
 $ramBar = Get-RamBar -Pct $ramBarPct
 
+$topVol = $volInfo | Sort-Object Uso_Pct -Descending | Select-Object -First 1
+$diskUsePct = 0; try { $diskUsePct = [double]$topVol.Uso_Pct } catch {}
+$topTemp = $tempInfo | Select-Object -First 1
+$tempPct = 0
+try {
+    if ($topTemp.Celsius -ne "N/D") { $tempPct = [math]::Min(100, [math]::Max(0, ([double]$topTemp.Celsius / 100) * 100)) }
+} catch {}
+$cpuPct = 0; try { $cpuPct = [double]$perfInfo.CPU_Pct } catch {}
+$critCount = 0; try { $critCount = @($critEvts).Count } catch {}
+$bsodCount = 0; try { $bsodCount = @($bsodInfo | Where-Object { $_.Fecha -notmatch "^Sin BSOD recientes" }).Count } catch {}
+
+$clientMeterHtml = (
+    (Get-MeterCard -Label "RAM actual" -Percent $ramBarPct -Display "$($perfInfo.RAM_Pct)%" -Tone $(if($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"}) -Hint "Uso actual de memoria del sistema") +
+    (Get-MeterCard -Label "Disco principal" -Percent $diskUsePct -Display "$([math]::Round($diskUsePct,0))%" -Tone $(if($diskUsePct -ge 95){"bad"}elseif($diskUsePct -ge 85){"warn"}else{"ok"}) -Hint "Ocupacion de la unidad mas cargada") +
+    (Get-MeterCard -Label "Temperatura" -Percent $tempPct -Display $(if($topTemp.Celsius -ne "N/D"){"$($topTemp.Celsius) C"}else{"N/D"}) -Tone $(if($topTemp.Estado -in @("CRITICO","ALTO")){"bad"}elseif($topTemp.Estado -eq "ELEVADO"){"warn"}else{"ok"}) -Hint "Referencia visual para la temperatura reportada") +
+    (Get-MeterCard -Label "Alertas graves" -Percent ([math]::Min(100, ($bsodCount*25)+($critCount*5))) -Display "$bsodCount BSOD / $critCount eventos" -Tone $(if($bsodCount -gt 0){"bad"}elseif($critCount -gt 0){"warn"}else{"ok"}) -Hint "Pantallazos azules y eventos relevantes recientes")
+)
+
+$techMeterHtml = (
+    (Get-MeterCard -Label "CPU actual" -Percent $cpuPct -Display "$($perfInfo.CPU_Pct)%" -Tone $(if($cpuPct -ge 90){"bad"}elseif($cpuPct -ge 70){"warn"}else{"ok"}) -Hint "Uso instantaneo del procesador") +
+    (Get-MeterCard -Label "RAM actual" -Percent $ramBarPct -Display "$($perfInfo.RAM_Pct)%" -Tone $(if($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"}) -Hint "Uso instantaneo de memoria") +
+    (Get-MeterCard -Label "Disco / volumen" -Percent $diskUsePct -Display "$([math]::Round($diskUsePct,0))%" -Tone $(if($diskUsePct -ge 95){"bad"}elseif($diskUsePct -ge 85){"warn"}else{"ok"}) -Hint "Volumen con mayor ocupacion") +
+    (Get-MeterCard -Label "Temperatura" -Percent $tempPct -Display $(if($topTemp.Celsius -ne "N/D"){"$($topTemp.Celsius) C"}else{"N/D"}) -Tone $(if($topTemp.Estado -in @("CRITICO","ALTO")){"bad"}elseif($topTemp.Estado -eq "ELEVADO"){"warn"}else{"ok"}) -Hint "Sensor mas exigido informado"),
+    (Get-MeterCard -Label "Eventos criticos" -Percent ([math]::Min(100, $critCount*8)) -Display "$critCount eventos" -Tone $(if($critCount -gt 8){"bad"}elseif($critCount -gt 0){"warn"}else{"ok"}) -Hint "Eventos criticos relevados en 30 dias"),
+    (Get-MeterCard -Label "Defensa" -Percent $(if($defInfo.Activo -eq $true){100}else{25}) -Display $(if($defInfo.Activo -eq $true){"Activa"}else{"Inactiva"}) -Tone $(if($defInfo.Activo -eq $true){"ok"}else{"bad"}) -Hint "Estado de Windows Defender")
+) -join ""
+
 # Logo base64 (compact placeholder - replace with your actual logo)
 $LogoB64 = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAACXBIWXMAAA7EAAAOxAGVKw4bAAADFUlEQVR4nO2cS27CMBCGZwMcgtNwCM7S03AWTsNNuAqH6KJISCiEkIQmJI+dxHbi2GM7TtL/S1aRKPb4+8fj8UQUBKIYAAAAAAAAAAAAAAAAAAAB8C7UpX0qAAAAAABJRU5ErkJggg=="
 
@@ -1775,6 +1909,17 @@ $CSS
     <div class="kpi"><div class="kpi-l">Uso RAM actual</div><div class="kpi-v" style="font-size:17px">$($perfInfo.RAM_Pct)%$ramBar</div></div>
     <div class="kpi"><div class="kpi-l">Disco principal</div><div class="kpi-v" style="font-size:12px">$(HtmlEnc (($diskInfo|Select-Object -First 1).Modelo))</div></div>
     <div class="kpi"><div class="kpi-l">Temperatura CPU</div><div class="kpi-v">$(if(($tempInfo|Select-Object -First 1).Celsius -ne "N/D"){"$(($tempInfo|Select-Object -First 1).Celsius)°C"}else{"Sin sensor"})</div></div>
+  </div>
+
+  <div class="section-accent" style="margin-top:18px">
+    <div>
+      <div class="sa-kicker">Panel visual</div>
+      <div class="sa-title">Tacometros del equipo</div>
+    </div>
+    <div class="sa-line"></div>
+  </div>
+  <div class="meter-grid">
+    $clientMeterHtml
   </div>
 </div>
 
@@ -1881,6 +2026,19 @@ $(To-HtmlTable $volInfo)
 # -- TECNICO-ONLY SECTIONS ----------------------------------------------------
 if ($Modo -eq "tecnico") {
     $html += @"
+
+<section>
+<div class="section-accent">
+  <div>
+    <div class="sa-kicker">Panel tecnico</div>
+    <div class="sa-title">Tacometros y carga del sistema</div>
+  </div>
+  <div class="sa-line"></div>
+</div>
+<div class="meter-grid">
+$techMeterHtml
+</div>
+</section>
 
 <section>
 <h2>[S] Analisis de hardware - Detalle tecnico</h2>
