@@ -64,6 +64,28 @@ function To-DT {
 
 function Round2 { param($v) try { return [math]::Round([double]$v, 2) } catch { return "N/D" } }
 
+function Get-NumericValueOrNull {
+    param($Value)
+    try { return [double]$Value } catch { return $null }
+}
+
+function Infer-DiskType {
+    param([string]$Model)
+    $m = [string]$Model
+    if ($m -match 'SSD|NVME|NVMe|M\.2|WDS|WD Green|WD Blue SA|KINGSTON|SAMSUNG|CRUCIAL|ADATA|XPG|HYNIX|SK hynix|KBG|KXG|MZV|MZ7') { return "SSD" }
+    if ($m -match 'HDD|TOSHIBA MQ|WD\d{2,}|ST\d{3,}|HITACHI|HGST') { return "HDD" }
+    return "N/D"
+}
+
+function Infer-DiskSizeGb {
+    param([string]$Model)
+    $m = [string]$Model
+    if ($m -match '([0-9]{3,4})\s?GB') { return [int]$matches[1] }
+    if ($m -match '([0-9]{2,4})G(?!Hz|b)') { return [int]$matches[1] }
+    if ($m -match '([1248])\s?TB') { return [int]$matches[1] * 1024 }
+    return "N/D"
+}
+
 function Get-ReportSlotInfo {
     param([string]$ModoActual, [string]$MomentoActual)
     if ($ModoActual -eq "tecnico") {
@@ -186,25 +208,34 @@ function Get-SystemSummary {
     try { $cpu   = Get-CimInstance Win32_Processor | Select-Object -First 1 } catch {}
     try { $ram   = Get-CimInstance Win32_PhysicalMemory } catch {}
 
+    $biosReg = $null; $cpuReg = $null; $compInfo = $null
+    try { $biosReg = Get-ItemProperty 'HKLM:\HARDWARE\DESCRIPTION\System\BIOS' } catch {}
+    try { $cpuReg = Get-ItemProperty 'HKLM:\HARDWARE\DESCRIPTION\System\CentralProcessor\0' } catch {}
+    try {
+        Add-Type -AssemblyName Microsoft.VisualBasic -ErrorAction SilentlyContinue
+        $compInfo = New-Object Microsoft.VisualBasic.Devices.ComputerInfo
+    } catch {}
+
     $ramGB = "N/D"
     try {
         $sum = ($ram | Measure-Object -Property Capacity -Sum).Sum
         if ($sum) { $ramGB = Round2 ($sum / 1GB) }
         elseif ($cs.TotalPhysicalMemory) { $ramGB = Round2 ($cs.TotalPhysicalMemory / 1GB) }
+        elseif ($compInfo.TotalPhysicalMemory) { $ramGB = Round2 ($compInfo.TotalPhysicalMemory / 1GB) }
     } catch {}
 
     [PSCustomObject]@{
-        Fabricante     = Safe $cs.Manufacturer
-        Modelo         = Safe $cs.Model
-        CPU            = Safe (($cpu.Name -replace '\s+', ' ').Trim())
-        Cores          = Safe $cpu.NumberOfCores
-        Hilos          = Safe $cpu.NumberOfLogicalProcessors
+        Fabricante     = Safe $(if($cs.Manufacturer){$cs.Manufacturer}else{$biosReg.SystemManufacturer})
+        Modelo         = Safe $(if($cs.Model){$cs.Model}else{$biosReg.SystemProductName})
+        CPU            = Safe $(if($cpu.Name){($cpu.Name -replace '\s+', ' ').Trim()}else{$cpuReg.ProcessorNameString})
+        Cores          = Safe $(if($cpu.NumberOfCores){$cpu.NumberOfCores}elseif($env:NUMBER_OF_PROCESSORS){[math]::Max(1,[int]([math]::Floor([int]$env:NUMBER_OF_PROCESSORS / 2)))}else{"N/D"})
+        Hilos          = Safe $(if($cpu.NumberOfLogicalProcessors){$cpu.NumberOfLogicalProcessors}elseif($env:NUMBER_OF_PROCESSORS){$env:NUMBER_OF_PROCESSORS}else{"N/D"})
         RAM_Total_GB   = $ramGB
         Slots_RAM      = if ($ram) { ($ram | Measure-Object).Count } else { "N/D" }
-        BIOS_Version   = Safe ($bios.SMBIOSBIOSVersion -join ", ")
-        BIOS_Fecha     = To-DT $bios.ReleaseDate
-        Motherboard    = "$(Safe $board.Manufacturer) $(Safe $board.Product)".Trim()
-        NroSerieEquipo = Safe $bios.SerialNumber
+        BIOS_Version   = Safe $(if($bios.SMBIOSBIOSVersion){($bios.SMBIOSBIOSVersion -join ", ")}else{$biosReg.BIOSVersion})
+        BIOS_Fecha     = $(if($bios.ReleaseDate){To-DT $bios.ReleaseDate}else{Safe $biosReg.BIOSReleaseDate})
+        Motherboard    = "$(Safe $(if($board.Manufacturer){$board.Manufacturer}else{$biosReg.BaseBoardManufacturer})) $(Safe $(if($board.Product){$board.Product}else{$biosReg.BaseBoardProduct}))".Trim()
+        NroSerieEquipo = Safe $(if($bios.SerialNumber){$bios.SerialNumber}elseif($biosReg.SystemSerialNumber){$biosReg.SystemSerialNumber}else{"N/D"})
     }
 }
 
@@ -214,7 +245,7 @@ function Get-GpuInfo {
             $_.Name -notmatch "Remote|Virtual|Basic|Microsoft|Hyper-V" -or $_.AdapterRAM -gt 0
         }
         if (-not $gpus) { $gpus = Get-CimInstance Win32_VideoController | Select-Object -First 1 }
-        if (-not $gpus) { return [PSCustomObject]@{ GPU="No detectada"; VRAM_GB="N/D"; Driver="N/D"; Resolucion="N/D" } }
+        if (-not $gpus) { throw "Sin datos CIM de GPU" }
         $gpus | ForEach-Object {
             [PSCustomObject]@{
                 GPU       = Safe $_.Name
@@ -224,14 +255,30 @@ function Get-GpuInfo {
             }
         }
     } catch {
-        [PSCustomObject]@{ GPU="Error"; VRAM_GB="N/D"; Driver="N/D"; Resolucion="N/D" }
+        try {
+            $gpuRegs = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Video\*\0000' -ErrorAction SilentlyContinue |
+                Where-Object { $_.DriverDesc }
+            if ($gpuRegs) {
+                return $gpuRegs | ForEach-Object {
+                    $mem = $null
+                    try { $mem = $_.'HardwareInformation.MemorySize' } catch {}
+                    [PSCustomObject]@{
+                        GPU        = Safe $_.DriverDesc
+                        VRAM_GB    = if ($mem) { Round2 ($mem / 1GB) } else { "N/D" }
+                        Driver     = Safe $_.DriverVersion
+                        Resolucion = "N/D"
+                    }
+                } | Sort-Object GPU -Unique
+            }
+        } catch {}
+        [PSCustomObject]@{ GPU="No detectada"; VRAM_GB="N/D"; Driver="N/D"; Resolucion="N/D" }
     }
 }
 
 function Get-RamDetail {
     try {
         $mems = Get-CimInstance Win32_PhysicalMemory
-        if (-not $mems) { return [PSCustomObject]@{ Banco="N/D"; GB="N/D"; Tipo="N/D"; MHz="N/D"; Fab="N/D"; Part="N/D" } }
+        if (-not $mems) { throw "Sin modulos CIM de RAM" }
         $mems | ForEach-Object {
             [PSCustomObject]@{
                 Banco = Safe $_.BankLabel
@@ -243,6 +290,18 @@ function Get-RamDetail {
             }
         }
     } catch {
+        try {
+            Add-Type -AssemblyName Microsoft.VisualBasic -ErrorAction SilentlyContinue
+            $ci = New-Object Microsoft.VisualBasic.Devices.ComputerInfo
+            return [PSCustomObject]@{
+                Banco = "Memoria total"
+                GB    = Round2 ($ci.TotalPhysicalMemory / 1GB)
+                Tipo  = "N/D"
+                MHz   = "N/D"
+                Fab   = "N/D"
+                Part  = "Detectada por .NET"
+            }
+        } catch {}
         [PSCustomObject]@{ Banco="Error"; GB="N/D"; Tipo="N/D"; MHz="N/D"; Fab="N/D"; Part="N/D" }
     }
 }
@@ -292,7 +351,7 @@ function Get-Temperatures {
 function Get-DiskHealth {
     try {
         $disks = Get-CimInstance Win32_DiskDrive
-        if (-not $disks) { return [PSCustomObject]@{ Disco="Sin discos"; Modelo="N/D"; Serial="N/D"; Tipo="N/D"; GB="N/D"; Estado="N/D"; Salud="N/D"; SMART="N/D"; Detalle="N/D" } }
+        if (-not $disks) { throw "Sin discos CIM" }
 
         # SMART map
         $smartMap = @{}
@@ -346,14 +405,42 @@ function Get-DiskHealth {
             }
         }
     } catch {
-        [PSCustomObject]@{ Disco="Error"; Modelo="N/D"; Serial="N/D"; Tipo="N/D"; GB="N/D"; Estado="N/D"; Salud="N/D"; SMART="N/D"; Detalle="Error al consultar" }
+        try {
+            $enum = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\disk\Enum' -ErrorAction SilentlyContinue
+            $items = @()
+            if ($enum) {
+                for ($i = 0; $i -lt [int]$enum.Count; $i++) {
+                    $instance = $enum."$i"
+                    if (-not $instance) { continue }
+                    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Enum\$instance"
+                    $d = Get-ItemProperty $regPath -ErrorAction SilentlyContinue
+                    if (-not $d) { continue }
+                    $model = if ($d.FriendlyName) { $d.FriendlyName } else { ($instance -split '\\')[1] -replace '&',' ' }
+                    $dtype = Infer-DiskType $model
+                    $sizeGuess = Infer-DiskSizeGb $model
+                    $items += [PSCustomObject]@{
+                        Disco   = "DRIVE$i"
+                        Modelo  = Safe $model
+                        Serial  = "N/D"
+                        Tipo    = Safe $dtype
+                        GB      = $sizeGuess
+                        Estado  = "SIN DATOS"
+                        Salud   = "Desconocido"
+                        SMART   = "N/D"
+                        Detalle = "Detectado por registro de Windows"
+                    }
+                }
+            }
+            if ($items) { return $items }
+        } catch {}
+        [PSCustomObject]@{ Disco="Sin discos"; Modelo="N/D"; Serial="N/D"; Tipo="N/D"; GB="N/D"; Estado="N/D"; Salud="N/D"; SMART="N/D"; Detalle="No se pudo consultar" }
     }
 }
 
 function Get-VolumeUsage {
     try {
         $vols = Get-Volume | Where-Object { $_.DriveLetter }
-        if (-not $vols) { return [PSCustomObject]@{ Unidad="N/D"; Etiqueta="N/D"; FS="N/D"; GB_Total="N/D"; GB_Libre="N/D"; Uso_Pct="N/D"; Alerta="N/D" } }
+        if (-not $vols) { throw "Sin volumenes CIM" }
         $vols | ForEach-Object {
             $total  = if ($_.Size)            { Round2 ($_.Size / 1GB) }            else { 0 }
             $free   = if ($_.SizeRemaining)   { Round2 ($_.SizeRemaining / 1GB) }   else { 0 }
@@ -370,6 +457,28 @@ function Get-VolumeUsage {
             }
         }
     } catch {
+        try {
+            $drives = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq [System.IO.DriveType]::Fixed }
+            if ($drives) {
+                return $drives | ForEach-Object {
+                    $total = if ($_.TotalSize) { Round2 ($_.TotalSize / 1GB) } else { "N/D" }
+                    $free  = if ($_.AvailableFreeSpace -ge 0) { Round2 ($_.AvailableFreeSpace / 1GB) } else { "N/D" }
+                    $usePct = if ($_.TotalSize -gt 0) { Round2 (((($_.TotalSize - $_.AvailableFreeSpace) / $_.TotalSize) * 100)) } else { "N/D" }
+                    $alert  = if ($usePct -is [double] -or $usePct -is [int]) {
+                        if ($usePct -ge 95) { "CRITICO" } elseif ($usePct -ge 85) { "ALTO" } elseif ($usePct -ge 70) { "MODERADO" } else { "OK" }
+                    } else { "N/D" }
+                    [PSCustomObject]@{
+                        Unidad   = $_.Name
+                        Etiqueta = Safe $_.VolumeLabel
+                        FS       = Safe $_.DriveFormat
+                        GB_Total = $total
+                        GB_Libre = $free
+                        Uso_Pct  = $usePct
+                        Alerta   = $alert
+                    }
+                }
+            }
+        } catch {}
         [PSCustomObject]@{ Unidad="Error"; Etiqueta="N/D"; FS="N/D"; GB_Total="N/D"; GB_Libre="N/D"; Uso_Pct="N/D"; Alerta="N/D" }
     }
 }
@@ -791,16 +900,38 @@ function Get-MemoryErrors {
 }
 
 function Get-CurrentPerformance {
+    $cpu = "N/D"
     try {
-        $cpu = (Get-Counter '\Processor(_Total)\% Processor Time').CounterSamples.CookedValue
-        $os  = Get-CimInstance Win32_OperatingSystem
+        $cpuRaw = (Get-Counter '\Processor(_Total)\% Processor Time' -ErrorAction Stop).CounterSamples.CookedValue
+        if ($null -ne $cpuRaw) { $cpu = [math]::Round([double]$cpuRaw, 1) }
+    } catch {}
+
+    $tot = $null
+    $fre = $null
+
+    try {
+        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
         $tot = Round2 ($os.TotalVisibleMemorySize / 1MB)
         $fre = Round2 ($os.FreePhysicalMemory / 1MB)
-        $use = Round2 ($tot - $fre)
-        $pct = if ($tot -gt 0) { Round2 (($use / $tot) * 100) } else { 0 }
-        [PSCustomObject]@{ CPU_Pct=$([math]::Round($cpu,1)); RAM_Usada_GB=$use; RAM_Total_GB=$tot; RAM_Pct=$pct }
+        if (($tot -as [double]) -le 0) { throw "Memoria CIM invalida" }
     } catch {
-        [PSCustomObject]@{ CPU_Pct="N/D"; RAM_Usada_GB="N/D"; RAM_Total_GB="N/D"; RAM_Pct="N/D" }
+        try {
+            Add-Type -AssemblyName Microsoft.VisualBasic -ErrorAction SilentlyContinue
+            $ci = New-Object Microsoft.VisualBasic.Devices.ComputerInfo
+            $tot = Round2 ($ci.TotalPhysicalMemory / 1GB)
+            $fre = Round2 ($ci.AvailablePhysicalMemory / 1GB)
+        } catch {}
+    }
+
+    try {
+        $totVal = [double]$tot
+        $freVal = [double]$fre
+        if ($totVal -le 0) { throw "Sin memoria total" }
+        $use = Round2 ($totVal - $freVal)
+        $pct = Round2 (($use / $totVal) * 100)
+        [PSCustomObject]@{ CPU_Pct=$cpu; RAM_Usada_GB=$use; RAM_Total_GB=$totVal; RAM_Pct=$pct }
+    } catch {
+        [PSCustomObject]@{ CPU_Pct=$cpu; RAM_Usada_GB="N/D"; RAM_Total_GB="N/D"; RAM_Pct="N/D" }
     }
 }
 
@@ -1149,449 +1280,614 @@ function Set-MaintenanceTask { param([int]$Meses)
 
 $CSS = @'
 <style>
-/* ── VARIABLES ─────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 :root{
-  --bg:#080a0c;
-  --s0:#0c0e12;
-  --s1:#10121a;
-  --s2:#14161e;
-  --b0:#1c1f2b;
-  --b1:#242838;
-  --b2:#2e3248;
-  --txt:#dde2f0;
-  --txt2:#9aa3bc;
-  --txt3:#5a6480;
-  --red:#e10600;
-  --red2:#ff3d35;
-  --red3:rgba(225,6,0,.18);
-  --ok:#00d4a0;
-  --ok2:rgba(0,212,160,.13);
-  --ok3:rgba(0,212,160,.3);
-  --warn:#f5a623;
-  --warn2:rgba(245,166,35,.13);
-  --warn3:rgba(245,166,35,.3);
-  --bad:#ff4d6a;
-  --bad2:rgba(255,77,106,.13);
-  --bad3:rgba(255,77,106,.3);
-  --blue:#5b9cf6;
-  --blue2:rgba(91,156,246,.13);
-  --blue3:rgba(91,156,246,.3);
-  --r:14px;
+  --red:#CC0000;
+  --red-dark:#a80000;
+  --red-soft:rgba(204,0,0,.12);
+  --red-soft-2:rgba(204,0,0,.18);
+  --black:#0a0a0a;
+  --black2:#111111;
+  --black3:#1a1a1a;
+  --black4:#222222;
+  --border:#2e2e2e;
+  --border2:#3a3a3a;
+  --text:#f0f0f0;
+  --text2:#b4b4b4;
+  --text3:#666;
+  --green:#22c55e;
+  --green-dim:rgba(34,197,94,.12);
+  --amber:#f59e0b;
+  --amber-dim:rgba(245,158,11,.12);
+  --blue:#3b82f6;
+  --blue-dim:rgba(59,130,246,.12);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Inter',system-ui,sans-serif;
+  --radius:18px;
+  --shadow:0 24px 60px rgba(0,0,0,.35);
 }
-
-/* ── RESET & BASE ───────────────────────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{
-  font-family:'Segoe UI Variable','Segoe UI',system-ui,-apple-system,sans-serif;
-  background:var(--bg);
-  color:var(--txt);
+  font-family:var(--sans);
+  background:
+    radial-gradient(circle at top right,rgba(204,0,0,.14),transparent 28%),
+    radial-gradient(circle at bottom left,rgba(204,0,0,.08),transparent 26%),
+    linear-gradient(180deg,#070707,#0d0d0d 30%,#090909 100%);
+  color:var(--text);
   line-height:1.6;
   font-size:14px;
   min-height:100vh;
 }
-
-/* bg decoration */
 body::before{
   content:'';
   position:fixed;inset:0;pointer-events:none;z-index:0;
-  background:
-    radial-gradient(ellipse 60% 50% at 90% 0%,rgba(225,6,0,.07),transparent),
-    radial-gradient(ellipse 40% 40% at 10% 100%,rgba(91,156,246,.04),transparent);
+  background-image:
+    linear-gradient(rgba(255,255,255,.016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.016) 1px, transparent 1px);
+  background-size:32px 32px;
+  mask-image:linear-gradient(180deg,rgba(0,0,0,.8),transparent 88%);
 }
-
-.wrap{max-width:1420px;margin:0 auto;padding:28px 22px;position:relative;z-index:1}
-
-/* ── HERO ──────────────────────────────────────────────────── */
+.wrap{max-width:1320px;margin:0 auto;padding:28px 18px 42px;position:relative;z-index:1}
 .hero{
-  background:linear-gradient(160deg,var(--s1) 0%,var(--s0) 100%);
-  border:1px solid var(--b1);
-  border-radius:22px;
-  padding:32px 36px 28px;
-  margin-bottom:28px;
-  position:relative;
+  background:
+    linear-gradient(140deg,rgba(255,255,255,.03),rgba(255,255,255,.01)),
+    linear-gradient(180deg,var(--black2),var(--black));
+  border:1px solid var(--border2);
+  border-top:3px solid var(--red);
+  border-radius:28px;
+  padding:26px;
+  margin-bottom:24px;
+  box-shadow:var(--shadow);
   overflow:hidden;
-  box-shadow:0 2px 40px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.04);
-}
-.hero::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg,var(--red) 0%,var(--red2) 40%,rgba(225,6,0,.1) 80%,transparent 100%);
+  position:relative;
 }
 .hero::after{
-  content:'';position:absolute;top:-80px;right:-80px;
-  width:360px;height:360px;border-radius:50%;pointer-events:none;
-  background:radial-gradient(circle,rgba(225,6,0,.09) 0%,transparent 70%);
+  content:'';
+  position:absolute;
+  top:-120px;right:-60px;
+  width:320px;height:320px;border-radius:50%;
+  background:radial-gradient(circle,rgba(204,0,0,.18),transparent 68%);
+  pointer-events:none;
 }
-
-/* ── BRAND ─────────────────────────────────────────────────── */
-.brand{display:flex;align-items:center;gap:20px;margin-bottom:26px}
-.brand-logo{
-  width:68px;height:68px;border-radius:14px;object-fit:cover;
-  border:1.5px solid var(--b2);
-  box-shadow:0 4px 24px rgba(225,6,0,.22),0 0 0 4px rgba(225,6,0,.06);
-}
-.brand-title{font-size:34px;font-weight:900;letter-spacing:3px;line-height:1}
-.brand-title .r{color:var(--red2)}
-.brand-title .w{color:#fff}
-.brand-sub{
-  font-size:9.5px;color:var(--txt3);
-  text-transform:uppercase;letter-spacing:3.5px;margin-top:7px;
-  display:flex;align-items:center;gap:8px;
-}
-.brand-sub::before{
-  content:'';display:inline-block;width:18px;height:1px;
-  background:var(--red);opacity:.6;
-}
-
-/* ── TITLES ────────────────────────────────────────────────── */
-.hero h1{
-  font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;
-  letter-spacing:.3px;
-}
-.hero .sub{
-  color:var(--txt3);font-size:12px;margin-bottom:24px;
-  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-}
-.hero .sub span{display:flex;align-items:center;gap:5px}
-.hero .sub span::before{
-  content:'';width:4px;height:4px;border-radius:50%;
-  background:var(--txt3);display:inline-block;
-}
-.hero .sub span:first-child::before{display:none}
-
-/* ── BANNER ────────────────────────────────────────────────── */
-.banner{
-  display:inline-flex;align-items:center;gap:10px;
-  padding:9px 22px;border-radius:100px;
-  font-weight:800;font-size:12px;letter-spacing:2px;text-transform:uppercase;
-  margin-bottom:14px;
-}
-.banner.ok{background:var(--ok2);border:1.5px solid var(--ok3);color:var(--ok)}
-.banner.warn{background:var(--warn2);border:1.5px solid var(--warn3);color:var(--warn)}
-.banner.bad{background:var(--bad2);border:1.5px solid var(--bad3);color:var(--bad)}
-.banner::before{
-  content:'';width:7px;height:7px;border-radius:50%;
-  background:currentColor;box-shadow:0 0 8px currentColor;flex-shrink:0;
-}
-
-/* ── SEMAFORO ──────────────────────────────────────────────── */
-.traffic{
+.hero-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
-  gap:8px;margin-bottom:20px;
+  grid-template-columns:minmax(0,1.2fr) minmax(360px,.92fr);
+  gap:20px;
+  align-items:start;
 }
-.tl{
-  display:flex;align-items:center;gap:11px;
-  background:var(--s2);border:1px solid var(--b0);
-  border-radius:12px;padding:11px 14px;
-  transition:border-color .18s,background .18s;
+.hero-main,.hero-side{
+  min-width:0;
+  position:relative;
+  z-index:1;
 }
-.tl:hover{background:var(--s1);border-color:var(--b1)}
-.tl-dot{
-  width:9px;height:9px;border-radius:50%;flex-shrink:0;
+.hero-main{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
 }
-.tl-dot.ok{background:var(--ok);box-shadow:0 0 10px var(--ok)}
-.tl-dot.warn{background:var(--warn);box-shadow:0 0 10px var(--warn)}
-.tl-dot.bad{background:var(--bad);box-shadow:0 0 10px var(--bad)}
-.tl-label{font-size:9.5px;color:var(--txt3);text-transform:uppercase;letter-spacing:.1em}
-.tl-value{font-size:12px;font-weight:700;color:var(--txt);margin-top:1px}
-
-/* ── KPIs ──────────────────────────────────────────────────── */
-.kgrid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(185px,1fr));
-  gap:10px;margin-bottom:20px;
-}
-.kpi{
-  background:var(--s2);border:1px solid var(--b0);border-radius:14px;
-  padding:16px 18px;position:relative;overflow:hidden;
-}
-.kpi::after{
-  content:'';position:absolute;bottom:-10px;right:-10px;
-  width:70px;height:70px;border-radius:50%;
-  background:radial-gradient(circle,rgba(255,255,255,.025),transparent);
-}
-.kpi-l{
-  font-size:9.5px;text-transform:uppercase;color:var(--txt3);
-  letter-spacing:.12em;margin-bottom:9px;
-}
-.kpi-v{font-size:19px;font-weight:800;color:#fff;line-height:1.2}
-
-/* ── RAM BAR ───────────────────────────────────────────────── */
-.bar-wrap{
-  background:rgba(255,255,255,.05);border-radius:100px;
-  overflow:hidden;height:5px;margin-top:9px;
-}
-.bar-fill{height:100%;border-radius:100px}
-.bar-fill.ok{background:linear-gradient(90deg,var(--ok),#00a87e)}
-.bar-fill.warn{background:linear-gradient(90deg,var(--warn),#c8871a)}
-.bar-fill.bad{background:linear-gradient(90deg,var(--bad),#cc2040)}
-
-/* ── SECTIONS ──────────────────────────────────────────────── */
-section{margin-bottom:28px}
-h2{
-  display:flex;align-items:center;gap:12px;
-  font-size:14px;font-weight:700;color:var(--txt);
-  padding:10px 0;margin-bottom:14px;
-  border-bottom:1px solid var(--b0);
-  letter-spacing:.4px;
-}
-h2::before{
-  content:'';display:block;flex-shrink:0;
-  width:3px;height:16px;border-radius:2px;
-  background:var(--red);box-shadow:0 0 10px rgba(225,6,0,.5);
-}
-.section-sub{
-  font-size:11.5px;color:var(--txt3);
-  margin:-8px 0 14px 15px;
-}
-
-/* ── RESUMEN COMERCIAL ─────────────────────────────────────── */
-.resumen-comercial{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
-  gap:10px;margin-bottom:0;
-}
-.rc-card{
-  background:var(--s2);border:1px solid var(--b0);
-  border-radius:14px;padding:18px 20px;
-}
-.rc-label{
-  font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;
-  color:var(--txt3);margin-bottom:8px;
-}
-.rc-status{
-  font-size:13px;font-weight:800;letter-spacing:.5px;
+.brand{
+  display:flex;
+  align-items:center;
+  gap:14px;
   margin-bottom:6px;
 }
-.rc-msg{font-size:12px;color:var(--txt2);line-height:1.6}
-
-/* ── ADVERTENCIAS BANNER ───────────────────────────────────── */
-.adv-table{width:100%}
-.adv-table td{padding:12px 16px;font-size:13px;vertical-align:middle}
-.adv-tipo{
-  font-size:11px;font-weight:700;color:var(--txt2);
-  white-space:nowrap;width:220px;
-}
-.adv-msg{color:var(--txt)}
-
-/* ── CARDS ─────────────────────────────────────────────────── */
-.cards{
+.brand-logo{
+  width:72px;
+  height:72px;
+  flex-shrink:0;
+  border-radius:14px;
+  border:1px solid var(--border2);
+  background:linear-gradient(180deg,var(--black3),var(--black2));
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-  gap:12px;
+  place-items:center;
+  overflow:hidden;
+  box-shadow:0 16px 34px rgba(0,0,0,.3);
 }
-.card{
-  background:var(--s1);border:1px solid var(--b0);
-  border-radius:16px;padding:20px;
-  position:relative;overflow:hidden;
-  transition:transform .15s,box-shadow .15s,border-color .15s;
+.brand-logo svg{
+  width:100%;
+  height:100%;
+  display:block;
 }
-.card:hover{
-  transform:translateY(-2px);
-  box-shadow:0 8px 32px rgba(0,0,0,.4);
+.brand-title{
+  font-size:34px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:.04em;
 }
-.card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+.brand-title .r{color:var(--red)}
+.brand-sub{
+  margin-top:6px;
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--text3);
+  text-transform:uppercase;
+  letter-spacing:.08em;
 }
-.card.ok{border-color:rgba(0,212,160,.22)}
-.card.ok::before{background:linear-gradient(90deg,var(--ok),transparent)}
-.card.warn{border-color:rgba(245,166,35,.22)}
-.card.warn::before{background:linear-gradient(90deg,var(--warn),transparent)}
-.card.bad{border-color:rgba(255,77,106,.22)}
-.card.bad::before{background:linear-gradient(90deg,var(--bad),transparent)}
-.card-icon{font-size:24px;margin-bottom:12px;opacity:.85}
-.card-title{font-size:12.5px;font-weight:700;color:#fff;margin-bottom:7px;letter-spacing:.2px}
-.card-body{font-size:12px;color:var(--txt2);line-height:1.75}
-.card-body strong{color:var(--txt)}
-
-/* ── TABLES ────────────────────────────────────────────────── */
-.tw{
-  width:100%;overflow-x:auto;
-  border-radius:var(--r);border:1px solid var(--b0);
-  margin-bottom:16px;background:var(--s1);
+.page-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--border2);
+  background:rgba(255,255,255,.02);
+  color:var(--text2);
+  font-family:var(--mono);
+  font-size:11px;
+  margin-bottom:12px;
 }
-table{width:100%;border-collapse:collapse;table-layout:auto}
-thead{position:sticky;top:0;z-index:2}
-th{
-  background:rgba(255,255,255,.03);
-  color:var(--txt3);padding:10px 14px;text-align:left;
-  font-size:9.5px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.1em;border-bottom:1px solid var(--b1);
-  white-space:nowrap;
+.page-kicker::before{
+  content:'';
+  width:7px;height:7px;border-radius:50%;
+  background:var(--red);
+  box-shadow:0 0 0 4px rgba(204,0,0,.18);
 }
-td{
-  padding:10px 14px;border-bottom:1px solid var(--b0);
-  font-size:12.5px;vertical-align:middle;word-break:break-word;
-  color:var(--txt);
+.hero h1{
+  font-size:28px;
+  font-weight:900;
+  line-height:1.08;
+  margin-bottom:8px;
+  max-width:18ch;
 }
-tr:last-child td{border-bottom:none}
-tbody tr:nth-child(even) td{background:rgba(255,255,255,.012)}
-tbody tr:hover td{background:rgba(255,255,255,.025)}
-
-/* ── TAGS ──────────────────────────────────────────────────── */
-.tag{
-  display:inline-flex;align-items:center;
-  padding:3px 10px;border-radius:100px;
-  font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-}
-.tag.ok{background:var(--ok2);color:var(--ok);border:1px solid var(--ok3)}
-.tag.warn{background:var(--warn2);color:var(--warn);border:1px solid var(--warn3)}
-.tag.bad{background:var(--bad2);color:var(--bad);border:1px solid var(--bad3)}
-.tag.info{background:var(--blue2);color:var(--blue);border:1px solid var(--blue3)}
-
-/* ── PRIORITY ──────────────────────────────────────────────── */
-.prio-urgente{color:var(--bad);font-weight:800}
-.prio-alta{color:#ff8240;font-weight:700}
-.prio-media{color:var(--warn);font-weight:600}
-.prio-baja{color:var(--ok)}
-.prio-ninguna{color:var(--txt3)}
-
-/* ── RESUMEN BOX ───────────────────────────────────────────── */
-.resumen-box{
-  background:var(--s1);border:1px solid var(--b1);
-  border-radius:16px;padding:24px 28px;
-  line-height:1.9;font-size:13.5px;
-}
-.resumen-box p{margin-bottom:4px}
-.resumen-box strong{color:#fff}
-.resumen-box .highlight{color:var(--ok);font-weight:700}
-.resumen-box .alert{color:var(--bad);font-weight:700}
-.resumen-box .note{color:var(--warn);font-weight:700}
-
-.meter-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-  gap:12px;
-  margin:14px 0 4px;
-}
-.meter{
-  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));
-  border:1px solid var(--b1);
-  border-radius:16px;
-  padding:14px 14px 12px;
-  box-shadow:0 12px 34px rgba(0,0,0,.2);
-}
-.meter-top{
+.hero .sub{
   display:flex;
-  align-items:baseline;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:16px;
+}
+.hero .sub span{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--border);
+  color:var(--text2);
+  font-size:12px;
+}
+.hero-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-top:6px;
+}
+.summary-chip{
+  background:var(--black3);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px;
+}
+.summary-chip .k{
+  color:var(--text3);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-family:var(--mono);
+  margin-bottom:6px;
+}
+.summary-chip .v{
+  color:#fff;
+  font-size:18px;
+  font-weight:800;
+  line-height:1.1;
+}
+.hero-side{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.status-card{
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015)),var(--black2);
+  border:1px solid var(--border2);
+  border-radius:22px;
+  padding:17px 18px;
+}
+.status-top{
+  display:flex;
+  align-items:center;
   justify-content:space-between;
   gap:10px;
   margin-bottom:10px;
 }
-.meter-label{
+.status-label{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--text3);
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.banner{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 14px;
+  border-radius:999px;
+  font-weight:800;
   font-size:11px;
   text-transform:uppercase;
-  letter-spacing:.12em;
-  color:var(--txt3);
-  font-weight:800;
+  letter-spacing:.08em;
 }
-.meter-value{
-  font-size:18px;
-  font-weight:900;
-  color:#fff;
+.banner::before{
+  content:'';
+  width:8px;height:8px;border-radius:50%;
+  background:currentColor;
 }
-.meter-track{
-  height:10px;
-  border-radius:999px;
-  overflow:hidden;
-  background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.04);
+.banner.ok{background:var(--green-dim);border:1px solid rgba(34,197,94,.28);color:var(--green)}
+.banner.warn{background:var(--amber-dim);border:1px solid rgba(245,158,11,.28);color:var(--amber)}
+.banner.bad{background:var(--red-soft);border:1px solid rgba(204,0,0,.28);color:#ff7575}
+.status-reason{
+  color:var(--text2);
+  font-size:13px;
+  line-height:1.7;
+  margin-bottom:14px;
 }
-.meter-fill{
-  height:100%;
-  border-radius:999px;
-  box-shadow:0 0 16px currentColor;
+.traffic{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
 }
-.meter-fill.ok{background:linear-gradient(90deg,#00d4a0,#51f0bf);color:#00d4a0}
-.meter-fill.warn{background:linear-gradient(90deg,#f5a623,#ffd166);color:#f5a623}
-.meter-fill.bad{background:linear-gradient(90deg,#ff4d6a,#ff7a7a);color:#ff4d6a}
-.meter-note{
-  margin-top:9px;
-  font-size:11px;
-  color:var(--txt2);
-  line-height:1.5;
+.tl{
+  background:var(--black3);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:12px 13px;
+  min-width:0;
 }
-
-.section-accent{
+.tl-head{
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:14px;
-  padding-bottom:10px;
-  border-bottom:1px solid var(--b1);
+  gap:8px;
+  margin-bottom:5px;
 }
-.section-accent .sa-kicker{
+.tl-dot{
+  width:9px;height:9px;border-radius:50%;flex-shrink:0;
+}
+.tl-dot.ok{background:var(--green);box-shadow:0 0 0 4px rgba(34,197,94,.14)}
+.tl-dot.warn{background:var(--amber);box-shadow:0 0 0 4px rgba(245,158,11,.14)}
+.tl-dot.bad{background:var(--red);box-shadow:0 0 0 4px rgba(204,0,0,.18)}
+.tl-label{
+  color:var(--text3);
+  font-family:var(--mono);
   font-size:10px;
   text-transform:uppercase;
-  letter-spacing:.16em;
-  color:var(--red2);
+  letter-spacing:.08em;
+}
+.tl-value{
+  color:#fff;
+  font-size:12px;
+  font-weight:700;
+  word-break:break-word;
+}
+.hero-panel{
+  margin-top:18px;
+  border-top:1px solid var(--border);
+  padding-top:18px;
+}
+.section-accent{
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.section-accent .sa-kicker{
+  color:var(--red);
+  font-size:11px;
   font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  font-family:var(--mono);
 }
 .section-accent .sa-title{
-  font-size:18px;
-  font-weight:900;
   color:#fff;
+  font-size:19px;
+  font-weight:900;
+  line-height:1.05;
 }
 .section-accent .sa-line{
   flex:1;
   height:2px;
   border-radius:999px;
   background:linear-gradient(90deg,var(--red),transparent);
-  opacity:.6;
+  opacity:.8;
 }
-
-/* ── TRABAJO HECHO ─────────────────────────────────────────── */
+.meter-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.meter{
+  background:var(--black3);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:15px;
+  min-height:116px;
+}
+.meter-top{
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:12px;
+}
+.meter-label{
+  color:var(--text3);
+  font-family:var(--mono);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.meter-value{
+  color:#fff;
+  font-size:18px;
+  font-weight:900;
+  line-height:1;
+  text-align:right;
+}
+.meter-track{
+  height:12px;
+  border-radius:999px;
+  overflow:hidden;
+  background:#090909;
+  border:1px solid var(--border);
+}
+.meter-fill{
+  height:100%;
+  border-radius:999px;
+}
+.meter-fill.ok{background:linear-gradient(90deg,#22c55e,#57e38a)}
+.meter-fill.warn{background:linear-gradient(90deg,#f59e0b,#ffd166)}
+.meter-fill.bad{background:linear-gradient(90deg,#CC0000,#ff5959)}
+.meter-note{
+  margin-top:9px;
+  color:var(--text2);
+  font-size:12px;
+  line-height:1.45;
+}
+.kgrid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-top:20px;
+}
+.kpi{
+  background:var(--black3);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:15px;
+  min-width:0;
+  min-height:104px;
+}
+.kpi-l{
+  color:var(--text3);
+  font-size:10px;
+  font-family:var(--mono);
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  margin-bottom:7px;
+}
+.kpi-v{
+  color:#fff;
+  font-size:17px;
+  font-weight:800;
+  line-height:1.25;
+  word-break:break-word;
+}
+.bar-wrap{
+  background:#090909;
+  border:1px solid var(--border);
+  border-radius:999px;
+  overflow:hidden;
+  height:8px;
+  margin-top:10px;
+}
+.bar-fill{height:100%;border-radius:999px}
+.bar-fill.ok{background:linear-gradient(90deg,#22c55e,#57e38a)}
+.bar-fill.warn{background:linear-gradient(90deg,#f59e0b,#ffd166)}
+.bar-fill.bad{background:linear-gradient(90deg,#CC0000,#ff5959)}
+section{
+  margin-bottom:18px;
+  border:1px solid var(--border);
+  border-radius:22px;
+  background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)),var(--black2);
+  box-shadow:0 16px 40px rgba(0,0,0,.18);
+  overflow:hidden;
+}
+h2{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:18px 20px 14px;
+  border-bottom:1px solid var(--border);
+  font-size:17px;
+  font-weight:800;
+  color:#fff;
+}
+h2::before{
+  content:'';
+  width:4px;
+  height:18px;
+  border-radius:4px;
+  background:var(--red);
+  box-shadow:0 0 0 4px rgba(204,0,0,.16);
+}
+.section-sub{
+  color:var(--text2);
+  font-size:12px;
+  padding:0 20px 14px;
+}
+.resumen-box{
+  margin:18px;
+  border:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(204,0,0,.06),rgba(255,255,255,.01)),var(--black3);
+  border-radius:18px;
+  padding:20px 22px;
+  line-height:1.9;
+  font-size:14px;
+}
+.resumen-box strong{color:#fff}
+.resumen-box .highlight{color:var(--green);font-weight:800}
+.resumen-box .alert{color:#ff8585;font-weight:800}
+.resumen-box .note{color:var(--amber);font-weight:800}
+.tw{
+  width:calc(100% - 36px);
+  margin:0 18px 18px;
+  overflow:auto;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:var(--black3);
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+th{
+  background:rgba(204,0,0,.08);
+  color:var(--text2);
+  text-align:left;
+  padding:12px 14px;
+  border-bottom:1px solid var(--border2);
+  font-family:var(--mono);
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  white-space:nowrap;
+}
+td{
+  padding:12px 14px;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  color:var(--text);
+  font-size:13px;
+  vertical-align:top;
+}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:nth-child(even) td{background:rgba(255,255,255,.016)}
+tbody tr:hover td{background:rgba(204,0,0,.05)}
+.tag{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  font-family:var(--mono);
+}
+.tag.ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.tag.warn{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
+.tag.bad{background:var(--red-soft);color:#ff7d7d;border:1px solid rgba(204,0,0,.24)}
+.tag.info{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,.2)}
+.prio-urgente{color:#ff7d7d;font-weight:800}
+.prio-alta{color:#ff9a57;font-weight:800}
+.prio-media{color:var(--amber);font-weight:700}
+.prio-baja{color:var(--green);font-weight:700}
+.prio-ninguna{color:var(--text3);font-weight:700}
+.cards{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  padding:0 18px 18px;
+}
+.card{
+  background:var(--black3);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:18px;
+  position:relative;
+}
+.card::before{
+  content:'';
+  position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:18px 0 0 18px;
+}
+.card.ok::before{background:var(--green)}
+.card.warn::before{background:var(--amber)}
+.card.bad::before{background:var(--red)}
+.card.info::before{background:var(--blue)}
+.card-icon{font-size:26px;margin-bottom:10px}
+.card-title{font-size:14px;font-weight:800;color:#fff;margin-bottom:8px}
+.card-body{font-size:12.5px;color:var(--text2);line-height:1.7}
+.card-body strong{color:#fff}
+.work-box,.next-box{
+  margin:18px;
+  border-radius:18px;
+  padding:20px;
+  border:1px solid var(--border);
+}
 .work-box{
-  background:var(--blue2);border:1px solid var(--blue3);
-  border-radius:14px;padding:22px;
+  background:linear-gradient(180deg,rgba(59,130,246,.08),rgba(255,255,255,.01)),var(--black3);
 }
-.work-title{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:12px;letter-spacing:.2px}
-.work-body{font-size:13px;color:var(--txt2);line-height:1.8}
-.work-body strong{color:var(--txt)}
-.work-body p{margin-bottom:4px}
-
-/* ── PROXIMA REVISION ──────────────────────────────────────── */
+.work-title{
+  font-size:14px;
+  font-weight:800;
+  color:var(--blue);
+  margin-bottom:10px;
+}
+.work-body{font-size:13px;color:var(--text2);line-height:1.8}
+.work-body strong{color:#fff}
 .next-box{
-  background:var(--ok2);border:1px solid var(--ok3);
-  border-radius:14px;padding:22px 26px;
-  display:flex;align-items:center;gap:22px;
+  display:flex;
+  align-items:center;
+  gap:18px;
+  background:linear-gradient(180deg,rgba(34,197,94,.08),rgba(255,255,255,.01)),var(--black3);
 }
-.next-date{font-size:26px;font-weight:900;color:var(--ok);flex-shrink:0;letter-spacing:1px}
-.next-msg{font-size:12.5px;color:var(--txt2);line-height:1.75}
-.next-msg strong{color:var(--txt)}
-
-/* ── FOOTER ────────────────────────────────────────────────── */
-.footer{
-  text-align:center;color:var(--txt3);font-size:11px;
-  margin-top:48px;padding:22px 0;
-  border-top:1px solid var(--b0);letter-spacing:.3px;
+.next-date{
+  flex-shrink:0;
+  font-family:var(--mono);
+  font-size:28px;
+  font-weight:800;
+  color:var(--green);
+}
+.next-msg{
+  color:var(--text2);
+  font-size:13px;
   line-height:1.8;
 }
-
-/* ── RESPONSIVE ────────────────────────────────────────────── */
-@media(max-width:800px){
-  .wrap{padding:14px 12px}
-  .hero{padding:20px 18px}
-  .brand-title{font-size:26px}
-  .hero h1{font-size:18px}
-  .kgrid,.cards,.traffic,.resumen-comercial{grid-template-columns:1fr}
-  td,th{padding:8px 10px;font-size:11px}
-  .next-box{flex-direction:column;gap:10px}
+.next-msg strong{color:#fff}
+.footer{
+  margin-top:28px;
+  padding:18px 8px 0;
+  border-top:1px solid var(--border);
+  color:var(--text3);
+  text-align:center;
+  font-size:11px;
+  line-height:1.8;
+  font-family:var(--mono);
 }
-
-/* ── PRINT ─────────────────────────────────────────────────── */
+@media (max-width:1100px){
+  .hero-grid{grid-template-columns:1fr}
+  .meter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:720px){
+  .wrap{padding:14px 10px 28px}
+  .hero{padding:18px}
+  .brand{align-items:flex-start}
+  .brand-title{font-size:28px}
+  .hero h1{font-size:24px;max-width:none}
+  .hero-summary,.traffic,.meter-grid,.kgrid,.cards{grid-template-columns:1fr}
+  .next-box{flex-direction:column;align-items:flex-start}
+  .tw{width:calc(100% - 20px);margin:0 10px 10px}
+  .resumen-box,.work-box,.next-box{margin:10px}
+  h2{padding:16px 14px 12px}
+  .section-sub{padding:0 14px 12px}
+}
 @media print{
   body{background:#fff;color:#111}
-  body::before{display:none}
-  .hero,.card,.kpi,.resumen-box,.next-box,.work-box{
-    background:#fff!important;border-color:#ddd!important;box-shadow:none!important;
+  body::before,.hero::after{display:none}
+  .hero,section,.meter,.kpi,.card,.resumen-box,.work-box,.next-box,.tw{
+    background:#fff!important;
+    border-color:#ddd!important;
+    box-shadow:none!important;
   }
-  h2{color:#111;border-color:#ddd}
-  .tw,.tag{border-color:#ccc!important}
-  td,th{border-color:#e0e0e0!important;color:#111!important}
-  th{color:#555!important;background:#f5f5f5!important}
+  .page-kicker,.banner,.tag{border-color:#ccc!important}
+  h2,th,td,.kpi-v,.meter-value,.card-title,.brand-title,.hero h1,.status-reason,.tl-value,.summary-chip .v{color:#111!important}
+  .brand-title .r{color:#a00!important}
 }
 </style>
 '@
@@ -1693,12 +1989,14 @@ function Get-ClientSummary {
     $emoji = if ($estado -match "EXCELENTE") { "&#9989;" } elseif ($estado -match "OBSERVACIONES") { "&#9888;" } else { "&#128308;" }
 
     $diskMsg = ""
-    $badDisk = $Disks | Where-Object { $_.Estado -ne "BIEN" -and $_.Estado -ne "SIN DATOS" }
+    $badDisk = $Disks | Where-Object { $_.Estado -in @("REEMPLAZAR","MAL") }
+    $unknownDisk = $Disks | Where-Object { $_.Estado -in @("SIN DATOS","N/D") }
     if ($badDisk) { $diskMsg = "&#9888; Se detecto un problema en el almacenamiento." }
+    elseif ($unknownDisk) { $diskMsg = "&#128712; No fue posible leer la salud avanzada del disco, pero no hay una falla critica informada." }
     else { $diskMsg = "&#9989; Los discos estan en buen estado." }
 
-    $ramPctVal = 0; try { $ramPctVal = [double]$Perf.RAM_Pct } catch {}
-    $ramMsg = if ($ramPctVal -ge 85) { "&#9888; La memoria RAM esta muy exigida." } else { "&#9989; La memoria RAM opera con normalidad." }
+    $ramPctVal = $null; try { $ramPctVal = [double]$Perf.RAM_Pct } catch {}
+    $ramMsg = if ($null -eq $ramPctVal) { "&#128712; No fue posible medir el uso actual de RAM en esta lectura." } elseif ($ramPctVal -ge 85) { "&#9888; La memoria RAM esta muy exigida." } else { "&#9989; La memoria RAM opera con normalidad." }
 
     $tempMsg = ""
     $hotZone = $Temps | Where-Object { $_.Estado -in @("ALTO","CRITICO") }
@@ -1824,45 +2122,79 @@ $bannerEmoji= if ($finalStatus.EstadoGeneral -match "EXCELENTE") { "[OK]" } else
 
 # Traffic lights
 $tlHw    = Get-TrafficLight "Hardware"    $hwAge.Equipo_Estado  (if($hwAge.Equipo_Estado -match "VIGENTE|USABLE"){if($hwAge.Equipo_Estado -match "USABLE"){"warn"}else{"ok"}}else{"bad"})
-$tlDisk  = Get-TrafficLight "Discos"      ($diskInfo|Select-Object -First 1).Estado (if(($diskInfo|Select-Object -First 1).Estado -eq "BIEN"){"ok"}else{"bad"})
-$tlRam   = Get-TrafficLight "RAM"         "$($perfInfo.RAM_Pct)% usada" (if($perfInfo.RAM_Pct -ne "N/D" -and [double]$perfInfo.RAM_Pct -ge 85){"bad"}elseif($perfInfo.RAM_Pct -ne "N/D" -and [double]$perfInfo.RAM_Pct -ge 65){"warn"}else{"ok"})
+$tlDisk  = Get-TrafficLight "Discos"      ($diskInfo|Select-Object -First 1).Estado (if(($diskInfo|Select-Object -First 1).Estado -eq "BIEN"){"ok"}elseif(($diskInfo|Select-Object -First 1).Estado -in @("SIN DATOS","N/D")){"warn"}else{"bad"})
+$tlRam   = Get-TrafficLight "RAM"         $(if($perfInfo.RAM_Pct -eq "N/D"){"Uso no disponible"}else{"$($perfInfo.RAM_Pct)% usada"}) (if($perfInfo.RAM_Pct -eq "N/D"){"warn"}elseif([double]$perfInfo.RAM_Pct -ge 85){"bad"}elseif([double]$perfInfo.RAM_Pct -ge 65){"warn"}else{"ok"})
 $tlTemp  = Get-TrafficLight "Temperatura" (($tempInfo|Select-Object -First 1).Estado) (if(($tempInfo|Select-Object -First 1).Estado -in @("CRITICO","ALTO")){"bad"}elseif(($tempInfo|Select-Object -First 1).Estado -eq "ELEVADO"){"warn"}else{"ok"})
 $tlDef   = Get-TrafficLight "Antivirus"   (if($defInfo.Activo -eq $true){"Activo"}else{"Inactivo"}) (if($defInfo.Activo -eq $true){"ok"}else{"bad"})
-$tlSpace = Get-TrafficLight "Espacio"     (($volInfo|Sort-Object Uso_Pct -Descending|Select-Object -First 1).Alerta) (if(($volInfo|Sort-Object Uso_Pct -Descending|Select-Object -First 1).Alerta -in @("CRITICO","ALTO")){"bad"}elseif(($volInfo|Sort-Object Uso_Pct -Descending|Select-Object -First 1).Alerta -eq "MODERADO"){"warn"}else{"ok"})
+$tlSpace = Get-TrafficLight "Espacio"     (($volInfo|Sort-Object Uso_Pct -Descending|Select-Object -First 1).Alerta) (if(($volInfo|Sort-Object Uso_Pct -Descending|Select-Object -First 1).Alerta -in @("CRITICO","ALTO")){"bad"}elseif(($volInfo|Sort-Object Uso_Pct -Descending|Select-Object -First 1).Alerta -in @("MODERADO","N/D")){"warn"}else{"ok"})
 
 # RAM bar
-$ramBarPct = 0; try { $ramBarPct = [double]$perfInfo.RAM_Pct } catch {}
+$ramBarPct = 0
+$ramPctDisplay = "N/D"
+try {
+    $ramBarPct = [double]$perfInfo.RAM_Pct
+    $ramPctDisplay = "$([math]::Round($ramBarPct,0))%"
+} catch {}
 $ramBar = Get-RamBar -Pct $ramBarPct
 
-$topVol = $volInfo | Sort-Object Uso_Pct -Descending | Select-Object -First 1
-$diskUsePct = 0; try { $diskUsePct = [double]$topVol.Uso_Pct } catch {}
+$numericVols = @(
+    $volInfo | Where-Object {
+        $val = Get-NumericValueOrNull $_.Uso_Pct
+        $null -ne $val
+    }
+)
+$topVol = if ($numericVols.Count -gt 0) {
+    $numericVols | Sort-Object { [double]$_.Uso_Pct } -Descending | Select-Object -First 1
+} else {
+    $volInfo | Select-Object -First 1
+}
+$diskUsePct = 0
+$diskPctDisplay = "N/D"
+try {
+    $diskUsePct = [double]$topVol.Uso_Pct
+    $diskPctDisplay = "$([math]::Round($diskUsePct,0))%"
+} catch {}
 $topTemp = $tempInfo | Select-Object -First 1
 $tempPct = 0
 try {
     if ($topTemp.Celsius -ne "N/D") { $tempPct = [math]::Min(100, [math]::Max(0, ([double]$topTemp.Celsius / 100) * 100)) }
 } catch {}
-$cpuPct = 0; try { $cpuPct = [double]$perfInfo.CPU_Pct } catch {}
+$cpuPct = 0
+$cpuPctDisplay = "N/D"
+try {
+    $cpuPct = [double]$perfInfo.CPU_Pct
+    $cpuPctDisplay = "$([math]::Round($cpuPct,0))%"
+} catch {}
 $critCount = 0; try { $critCount = @($critEvts).Count } catch {}
 $bsodCount = 0; try { $bsodCount = @($bsodInfo | Where-Object { $_.Fecha -notmatch "^Sin BSOD recientes" }).Count } catch {}
 
 $clientMeterHtml = (
-    (Get-MeterCard -Label "RAM actual" -Percent $ramBarPct -Display "$($perfInfo.RAM_Pct)%" -Tone $(if($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"}) -Hint "Uso actual de memoria del sistema") +
-    (Get-MeterCard -Label "Disco principal" -Percent $diskUsePct -Display "$([math]::Round($diskUsePct,0))%" -Tone $(if($diskUsePct -ge 95){"bad"}elseif($diskUsePct -ge 85){"warn"}else{"ok"}) -Hint "Ocupacion de la unidad mas cargada") +
+    (Get-MeterCard -Label "RAM actual" -Percent $ramBarPct -Display $ramPctDisplay -Tone $(if($ramPctDisplay -eq "N/D"){"warn"}elseif($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"}) -Hint "Uso actual de memoria del sistema") +
+    (Get-MeterCard -Label "Disco principal" -Percent $diskUsePct -Display $diskPctDisplay -Tone $(if($diskPctDisplay -eq "N/D"){"warn"}elseif($diskUsePct -ge 95){"bad"}elseif($diskUsePct -ge 85){"warn"}else{"ok"}) -Hint "Ocupacion de la unidad mas cargada") +
     (Get-MeterCard -Label "Temperatura" -Percent $tempPct -Display $(if($topTemp.Celsius -ne "N/D"){"$($topTemp.Celsius) C"}else{"N/D"}) -Tone $(if($topTemp.Estado -in @("CRITICO","ALTO")){"bad"}elseif($topTemp.Estado -eq "ELEVADO"){"warn"}else{"ok"}) -Hint "Referencia visual para la temperatura reportada") +
     (Get-MeterCard -Label "Alertas graves" -Percent ([math]::Min(100, ($bsodCount*25)+($critCount*5))) -Display "$bsodCount BSOD / $critCount eventos" -Tone $(if($bsodCount -gt 0){"bad"}elseif($critCount -gt 0){"warn"}else{"ok"}) -Hint "Pantallazos azules y eventos relevantes recientes")
 )
 
 $techMeterHtml = (
-    (Get-MeterCard -Label "CPU actual" -Percent $cpuPct -Display "$($perfInfo.CPU_Pct)%" -Tone $(if($cpuPct -ge 90){"bad"}elseif($cpuPct -ge 70){"warn"}else{"ok"}) -Hint "Uso instantaneo del procesador") +
-    (Get-MeterCard -Label "RAM actual" -Percent $ramBarPct -Display "$($perfInfo.RAM_Pct)%" -Tone $(if($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"}) -Hint "Uso instantaneo de memoria") +
-    (Get-MeterCard -Label "Disco / volumen" -Percent $diskUsePct -Display "$([math]::Round($diskUsePct,0))%" -Tone $(if($diskUsePct -ge 95){"bad"}elseif($diskUsePct -ge 85){"warn"}else{"ok"}) -Hint "Volumen con mayor ocupacion") +
+    (Get-MeterCard -Label "CPU actual" -Percent $cpuPct -Display $cpuPctDisplay -Tone $(if($cpuPctDisplay -eq "N/D"){"warn"}elseif($cpuPct -ge 90){"bad"}elseif($cpuPct -ge 70){"warn"}else{"ok"}) -Hint "Uso instantaneo del procesador") +
+    (Get-MeterCard -Label "RAM actual" -Percent $ramBarPct -Display $ramPctDisplay -Tone $(if($ramPctDisplay -eq "N/D"){"warn"}elseif($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"}) -Hint "Uso instantaneo de memoria") +
+    (Get-MeterCard -Label "Disco / volumen" -Percent $diskUsePct -Display $diskPctDisplay -Tone $(if($diskPctDisplay -eq "N/D"){"warn"}elseif($diskUsePct -ge 95){"bad"}elseif($diskUsePct -ge 85){"warn"}else{"ok"}) -Hint "Volumen con mayor ocupacion") +
     (Get-MeterCard -Label "Temperatura" -Percent $tempPct -Display $(if($topTemp.Celsius -ne "N/D"){"$($topTemp.Celsius) C"}else{"N/D"}) -Tone $(if($topTemp.Estado -in @("CRITICO","ALTO")){"bad"}elseif($topTemp.Estado -eq "ELEVADO"){"warn"}else{"ok"}) -Hint "Sensor mas exigido informado"),
     (Get-MeterCard -Label "Eventos criticos" -Percent ([math]::Min(100, $critCount*8)) -Display "$critCount eventos" -Tone $(if($critCount -gt 8){"bad"}elseif($critCount -gt 0){"warn"}else{"ok"}) -Hint "Eventos criticos relevados en 30 dias"),
     (Get-MeterCard -Label "Defensa" -Percent $(if($defInfo.Activo -eq $true){100}else{25}) -Display $(if($defInfo.Activo -eq $true){"Activa"}else{"Inactiva"}) -Tone $(if($defInfo.Activo -eq $true){"ok"}else{"bad"}) -Hint "Estado de Windows Defender")
 ) -join ""
 
-# Logo base64 (compact placeholder - replace with your actual logo)
-$LogoB64 = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAACXBIWXMAAA7EAAAOxAGVKw4bAAADFUlEQVR4nO2cS27CMBCGZwMcgtNwCM7S03AWTsNNuAqH6KJISCiEkIQmJI+dxHbi2GM7TtL/S1aRKPb4+8fj8UQUBKIYAAAAAAAAAAAAAAAAAAAB8C7UpX0qAAAAAABJRU5ErkJggg=="
+$heroMeterHtml = if ($Modo -eq "tecnico") { $techMeterHtml } else { $clientMeterHtml }
+
+# Logo base64 (favicon/logo real de PCLAF)
+$LogoB64 = "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"
+$BrandMark = @"
+<svg viewBox="0 0 42 42" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <rect width="42" height="42" rx="6" fill="#CC0000"></rect>
+  <text x="21" y="19" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="18" fill="white">PC</text>
+  <text x="21" y="38" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="14" fill="white">LAF</text>
+</svg>
+"@
 
 $html = @"
 <!DOCTYPE html>
@@ -1878,48 +2210,69 @@ $CSS
 
 <!-- HERO -->
 <div class="hero">
-  <div class="brand">
-    <img class="brand-logo" src="data:image/png;base64,$LogoB64" alt="PCLAF">
-    <div>
-      <div class="brand-title"><span class="w">PC</span><span class="r">LAF</span></div>
-      <div class="brand-sub">Servicio Tecnico - Floresta, CABA - pclaf.com.ar</div>
+  <div class="hero-grid">
+    <div class="hero-main">
+      <div class="brand">
+        <div class="brand-logo">$BrandMark</div>
+        <div>
+          <div class="brand-title">PC<span class="r">LAF</span></div>
+          <div class="brand-sub">Servicio tecnico • Floresta, CABA • pclaf.com.ar</div>
+        </div>
+      </div>
+      <div class="page-kicker">Reporte $($Modo.ToUpper()) • Script v$ScriptVersion</div>
+      <h1>Diagnostico completo del equipo $($env:COMPUTERNAME)</h1>
+      <div class="sub">
+        <span>$(Get-Date -Format "dd/MM/yyyy HH:mm")</span>
+        <span>Tecnico: $Tecnico</span>
+        <span>Modo: $($Modo.ToUpper())</span>
+      </div>
+      <div class="hero-summary">
+        <div class="summary-chip">
+          <div class="k">Sistema operativo</div>
+          <div class="v">$(HtmlEnc $osInfo.SO)</div>
+        </div>
+        <div class="summary-chip">
+          <div class="k">Memoria instalada</div>
+          <div class="v">$($sysInfo.RAM_Total_GB) GB</div>
+        </div>
+        <div class="summary-chip">
+          <div class="k">Revision sugerida</div>
+          <div class="v">$nextDate</div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-side">
+      <div class="status-card">
+        <div class="status-top">
+          <div class="status-label">Estado general</div>
+          <div class="banner $estadoCls">$($finalStatus.EstadoGeneral)</div>
+        </div>
+        <div class="status-reason">$(HtmlEnc $finalStatus.Motivos)</div>
+        <div class="traffic">
+          $tlHw $tlDisk $tlRam $tlTemp $tlDef $tlSpace
+        </div>
+      </div>
+      <div class="status-card">
+        <div class="section-accent">
+          <div>
+            <div class="sa-kicker">Panel visual</div>
+            <div class="sa-title">Indicadores PCLAF</div>
+          </div>
+          <div class="sa-line"></div>
+        </div>
+        <div class="meter-grid">
+          $heroMeterHtml
+        </div>
+      </div>
     </div>
   </div>
-  <h1>Diagnostico del equipo: $($env:COMPUTERNAME)</h1>
-  <div class="sub">
-    <span>$(Get-Date -Format "dd/MM/yyyy HH:mm")</span>
-    <span>Tecnico: $Tecnico</span>
-    <span>Modo: $($Modo.ToUpper())</span>
-  </div>
-
-  <!-- BANNER ESTADO -->
-  <div class="banner $estadoCls">$($finalStatus.EstadoGeneral)</div>
-  <p style="color:var(--txt3);font-size:12px;margin-bottom:20px">$($finalStatus.Motivos)</p>
-
-  <!-- SEMAFORO -->
-  <div class="traffic">
-    $tlHw $tlDisk $tlRam $tlTemp $tlDef $tlSpace
-  </div>
-
-  <!-- KPIs -->
   <div class="kgrid">
     <div class="kpi"><div class="kpi-l">Sistema operativo</div><div class="kpi-v" style="font-size:13px">$(HtmlEnc $osInfo.SO)</div></div>
     <div class="kpi"><div class="kpi-l">Procesador</div><div class="kpi-v" style="font-size:12px">$(HtmlEnc $sysInfo.CPU)</div></div>
     <div class="kpi"><div class="kpi-l">Memoria RAM</div><div class="kpi-v">$($sysInfo.RAM_Total_GB) GB</div></div>
-    <div class="kpi"><div class="kpi-l">Uso RAM actual</div><div class="kpi-v" style="font-size:17px">$($perfInfo.RAM_Pct)%$ramBar</div></div>
+    <div class="kpi"><div class="kpi-l">Uso RAM actual</div><div class="kpi-v" style="font-size:17px">$ramPctDisplay$ramBar</div></div>
     <div class="kpi"><div class="kpi-l">Disco principal</div><div class="kpi-v" style="font-size:12px">$(HtmlEnc (($diskInfo|Select-Object -First 1).Modelo))</div></div>
     <div class="kpi"><div class="kpi-l">Temperatura CPU</div><div class="kpi-v">$(if(($tempInfo|Select-Object -First 1).Celsius -ne "N/D"){"$(($tempInfo|Select-Object -First 1).Celsius)°C"}else{"Sin sensor"})</div></div>
-  </div>
-
-  <div class="section-accent" style="margin-top:18px">
-    <div>
-      <div class="sa-kicker">Panel visual</div>
-      <div class="sa-title">Tacometros del equipo</div>
-    </div>
-    <div class="sa-line"></div>
-  </div>
-  <div class="meter-grid">
-    $clientMeterHtml
   </div>
 </div>
 
