@@ -9,7 +9,7 @@ Este repo contiene una herramienta de diagnostico para Windows escrita en PowerS
 Su flujo principal es:
 
 1. La web descarga un `.bat` generado en cliente.
-2. Ese `.bat` descarga `DiagnosticoPC.ps1` desde este repo.
+2. Ese `.bat` descarga `DiagnosticoPC.ps1` desde el sitio web publicado de PCLAF.
 3. El script corre localmente en la PC del cliente o del tecnico.
 4. El script releva hardware, sistema, discos, seguridad, rendimiento y trazabilidad previa.
 5. El script genera un reporte HTML.
@@ -41,7 +41,7 @@ La integracion actual depende de `admin.html` del repo web.
 
 La web define:
 
-- `const TOOLS_BASE = 'https://raw.githubusercontent.com/LucasAFurno/pclaf-reporte/main'`
+- `const TOOLS_BASE = new URL('./tools', window.location.href).href.replace(/\/$/, '')`
 - `function lanzarScript(tipo)`
 
 La funcion:
@@ -49,7 +49,7 @@ La funcion:
 1. construye un `.bat` en memoria;
 2. lo descarga en el navegador;
 3. el usuario lo ejecuta como administrador;
-4. el `.bat` descarga `DiagnosticoPC.ps1` desde `raw.githubusercontent.com`;
+4. el `.bat` descarga `DiagnosticoPC.ps1` desde `pclaf-web/tools/DiagnosticoPC.ps1`, servido por el sitio publicado;
 5. el `.bat` ejecuta `powershell -ExecutionPolicy Bypass -File "%TEMP%\DiagnosticoPC_PCLAF.ps1" -Modo cliente|tecnico`.
 
 Consecuencia importante:
@@ -329,6 +329,16 @@ DiagnosticoPC.ps1
 
 Si cambia el nombre, la web deja de poder lanzarlo.
 
+### 1.1. Copia publicada del script
+
+Aunque este repo sea la fuente de verdad del script, la version descargable por el launcher vive en:
+
+```text
+pclaf-web/tools/DiagnosticoPC.ps1
+```
+
+Si este repo cambia y la copia publicada no se sincroniza, la web seguira descargando una version vieja.
+
 ### 2. Parametro `-Modo`
 
 La web invoca `-Modo cliente` o `-Modo tecnico`.
@@ -438,4 +448,3 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\DiagnosticoPC.ps1 -Modo cl
 ## Repos relacionados
 
 - `pclaf-web`: frontend estatico que descarga el launcher `.bat`, sube el HTML y muestra la version cliente.
-

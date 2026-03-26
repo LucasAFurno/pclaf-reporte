@@ -107,13 +107,14 @@ Este repo se integra con la web de PCLAF, pero no corre en servidor.
 El flujo actual es:
 
 1. la web descarga un `.bat`;
-2. ese `.bat` baja `DiagnosticoPC.ps1` desde este repo;
+2. ese `.bat` baja `DiagnosticoPC.ps1` desde el sitio publicado de PCLAF;
 3. el script corre localmente en Windows;
 4. se genera el HTML;
 5. luego ese HTML se puede subir manualmente desde la web.
 
 Importante:
 
+- la copia publicada del script debe mantenerse sincronizada en `pclaf-web/tools/DiagnosticoPC.ps1`;
 - si cambia el nombre `DiagnosticoPC.ps1`, la web deja de poder descargarlo;
 - si cambian los modos `cliente` y `tecnico`, la web tambien se ve afectada.
 
@@ -131,4 +132,3 @@ Algunos chequeos dependen del hardware, drivers o permisos del equipo, por lo qu
 - Tener cuidado si se modifican rutas locales o claves del registro.
 - Si se cambia mucho la estructura del HTML, revisar tambien `pclaf-web`.
 - Para contexto tecnico mas profundo, leer `AI_CONTEXT.md`.
-
