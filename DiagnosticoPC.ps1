@@ -125,6 +125,30 @@ function Get-ReportSlotInfo {
     }
 }
 
+function Sanitize-UploadText {
+    param($Text)
+    if ($null -eq $Text) { return $null }
+
+    $value = [string]$Text
+    $value = $value -replace [char]0, ''
+    $value = $value -replace '\uFEFF', ''
+    $value = $value -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', ''
+    return $value
+}
+
+function Write-UploadLog {
+    param(
+        [string]$Stage,
+        [string]$Message
+    )
+
+    try {
+        $logFile = Join-Path $env:TEMP "PCLAF_Upload.log"
+        $line = "[{0}] [{1}] {2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Stage, $Message
+        Add-Content -Path $logFile -Value $line -Encoding UTF8
+    } catch {}
+}
+
 function Invoke-SupabaseReportUpload {
     param(
         [string]$BaseUrl,
@@ -152,12 +176,19 @@ function Invoke-SupabaseReportUpload {
         Prefer        = "return=representation"
     }
 
+    $htmlFullClean = Sanitize-UploadText $HtmlFull
+    $htmlClientClean = Sanitize-UploadText $HtmlClient
+
     $payload = @{
         reparacion_id = $RepairId
-        html_content  = $HtmlFull
-        html_cliente  = $HtmlClient
+        html_content  = $htmlFullClean
+        html_cliente  = $htmlClientClean
         filename      = $FileName
     } | ConvertTo-Json -Depth 10
+
+    $payloadBytes = 0
+    try { $payloadBytes = [System.Text.Encoding]::UTF8.GetByteCount($payload) } catch {}
+    Write-UploadLog -Stage "PREP" -Message ("Archivo={0} Bytes={1}" -f $FileName, $payloadBytes)
 
     try {
         $repairFilter = [uri]::EscapeDataString($RepairId)
@@ -167,14 +198,18 @@ function Invoke-SupabaseReportUpload {
         if ($existing -and $existing.Count -gt 0) {
             $id = $existing[0].id
             $patchUrl = "$base/rest/v1/reportes?id=eq.$id"
+            Write-UploadLog -Stage "PATCH" -Message ("Actualizando reporte existente {0}" -f $id)
             $null = Invoke-RestMethod -Method Patch -Uri $patchUrl -Headers $headers -Body $payload
+            Write-UploadLog -Stage "OK" -Message ("Reporte actualizado en Supabase: {0}" -f $id)
             return [PSCustomObject]@{ Ok=$true; Message="Reporte actualizado en Supabase"; Id=$id }
         }
 
         $postUrl = "$base/rest/v1/reportes"
+        Write-UploadLog -Stage "POST" -Message ("Creando reporte nuevo {0}" -f $FileName)
         $created = Invoke-RestMethod -Method Post -Uri $postUrl -Headers $headers -Body $payload
         $newId = $null
         try { $newId = $created[0].id } catch {}
+        Write-UploadLog -Stage "OK" -Message ("Reporte subido a Supabase: {0}" -f $newId)
         return [PSCustomObject]@{ Ok=$true; Message="Reporte subido a Supabase"; Id=$newId }
     } catch {
         $msg = $_.Exception.Message
@@ -188,6 +223,7 @@ function Invoke-SupabaseReportUpload {
                 }
             }
         } catch {}
+        Write-UploadLog -Stage "ERROR" -Message $msg
         return [PSCustomObject]@{ Ok=$false; Message=$msg }
     }
 }
@@ -2608,7 +2644,9 @@ $uploadResult = $null
 if ($SubirASupabase -and $ReparacionId -and $SupabaseUrl -and $SupabaseAnonKey) {
     $slotInfo = Get-ReportSlotInfo -ModoActual $Modo -MomentoActual $MomentoReporte
     $htmlClienteSubida = if ($Modo -eq "cliente") { $html } else { $null }
-    Update-Stage 98 "Subiendo reporte a Supabase"
+    Update-Stage 97 "Preparando reporte para subida"
+    Update-Stage 98 "Validando datos para Supabase"
+    Update-Stage 99 "Enviando archivo a Supabase"
     $uploadResult = Invoke-SupabaseReportUpload -BaseUrl $SupabaseUrl -AnonKey $SupabaseAnonKey -RepairId $ReparacionId -HtmlFull $html -HtmlClient $htmlClienteSubida -FileName $slotInfo.FileName
 }
 
@@ -2623,8 +2661,14 @@ Write-Host "  Estado  : $($finalStatus.EstadoGeneral)" -ForegroundColor $(if($fi
 Write-Host "  Marca   : $(if($markOk){"Guardada en registro"}else{"No se pudo guardar"})" -ForegroundColor $(if($markOk){"Green"}else{"Yellow"})
 if ($uploadResult) {
     Write-Host "  Subida  : $($uploadResult.Message)" -ForegroundColor $(if($uploadResult.Ok){"Green"}else{"Yellow"})
+    Write-Host "  Log     : $env:TEMP\PCLAF_Upload.log" -ForegroundColor DarkCyan
 }
 Write-Host ""
+
+if ($SubirASupabase -and (-not $uploadResult -or -not $uploadResult.Ok)) {
+    Write-Error ("La subida automatica del reporte fallo. " + $(if ($uploadResult) { $uploadResult.Message } else { "No se obtuvo respuesta del intento de subida." }))
+    exit 1
+}
 
 # Abrir el reporte automaticamente
 try { Start-Process $outFile } catch {}
