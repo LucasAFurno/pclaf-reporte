@@ -139,6 +139,11 @@ function Invoke-SupabaseReportUpload {
         return [PSCustomObject]@{ Ok=$false; Message="Faltan parametros de Supabase o reparacion" }
     }
 
+    $repairGuid = [guid]::Empty
+    if (-not [guid]::TryParse($RepairId, [ref]$repairGuid)) {
+        return [PSCustomObject]@{ Ok=$false; Message="ReparacionId invalido: $RepairId" }
+    }
+
     $base = $BaseUrl.TrimEnd('/')
     $headers = @{
         apikey        = $AnonKey
@@ -155,7 +160,9 @@ function Invoke-SupabaseReportUpload {
     } | ConvertTo-Json -Depth 10
 
     try {
-        $existingUrl = "$base/rest/v1/reportes?reparacion_id=eq.$RepairId&filename=eq.$([uri]::EscapeDataString($FileName))&select=id&limit=1"
+        $repairFilter = [uri]::EscapeDataString($RepairId)
+        $fileFilter = [uri]::EscapeDataString($FileName)
+        $existingUrl = "$base/rest/v1/reportes?reparacion_id=eq.$repairFilter&filename=eq.$fileFilter&select=id&limit=1"
         $existing = Invoke-RestMethod -Method Get -Uri $existingUrl -Headers $headers
         if ($existing -and $existing.Count -gt 0) {
             $id = $existing[0].id
@@ -170,7 +177,18 @@ function Invoke-SupabaseReportUpload {
         try { $newId = $created[0].id } catch {}
         return [PSCustomObject]@{ Ok=$true; Message="Reporte subido a Supabase"; Id=$newId }
     } catch {
-        return [PSCustomObject]@{ Ok=$false; Message=$_.Exception.Message }
+        $msg = $_.Exception.Message
+        try {
+            $resp = $_.Exception.Response
+            if ($resp) {
+                $reader = New-Object System.IO.StreamReader($resp.GetResponseStream())
+                $bodyText = $reader.ReadToEnd()
+                if (-not [string]::IsNullOrWhiteSpace($bodyText)) {
+                    $msg = "$msg | $bodyText"
+                }
+            }
+        } catch {}
+        return [PSCustomObject]@{ Ok=$false; Message=$msg }
     }
 }
 
