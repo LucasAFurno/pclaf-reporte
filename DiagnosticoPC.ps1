@@ -2891,10 +2891,10 @@ body{
   border:1px solid rgba(255,255,255,.08);
   border-top:4px solid var(--red);
   border-radius:32px;
-  padding:28px;
+  padding:24px;
   box-shadow:0 24px 60px rgba(0,0,0,.35);
 }
-.hero-grid{display:grid;grid-template-columns:minmax(0,1.15fr) 420px;gap:22px}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.1fr) 390px;gap:18px}
 .brand{display:flex;align-items:center;gap:16px}
 .brand-logo{
   width:74px;height:74px;border-radius:16px;background:var(--red);
@@ -2911,18 +2911,18 @@ body{
   background:rgba(255,255,255,.025);font-family:var(--mono);font-size:11px;color:var(--text2)
 }
 .kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--red2);box-shadow:0 0 0 5px rgba(204,0,0,.15)}
-.hero h1{margin:18px 0 10px;font-size:44px;line-height:1.02;max-width:11ch}
+.hero h1{margin:16px 0 10px;font-size:39px;line-height:1.03;max-width:13ch}
 .meta{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 20px}
 .meta span{padding:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.03);font-size:12px;color:var(--text2)}
-.summary-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.summary-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .summary-box{
-  border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:16px;background:rgba(255,255,255,.02)
+  border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:14px;background:rgba(255,255,255,.02)
 }
 .summary-k{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:8px}
 .summary-v{font-size:19px;font-weight:800;line-height:1.15;color:#fff}
 .hero-side{display:grid;gap:16px}
 .status-card,.mini-board{
-  border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:18px;background:
+  border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:16px;background:
   linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)), #171717
 }
 .status-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
@@ -2934,7 +2934,7 @@ body{
 .pill.bad{color:#ff7777;background:rgba(204,0,0,.12);border-color:rgba(204,0,0,.24)}
 .pill.info{color:var(--blue);background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.24)}
 .status-copy{font-size:14px;line-height:1.7;color:var(--text2)}
-.lights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.lights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
 .light{display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.07);border-radius:15px;padding:11px 12px;background:rgba(0,0,0,.16)}
 .dot{width:11px;height:11px;border-radius:50%}
 .dot.ok{background:var(--green)}
@@ -2944,7 +2944,7 @@ body{
 .light .t2{font-size:12px;color:#fff;margin-top:4px}
 .mini-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .mini-title{font-size:20px;font-weight:900}
-.mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .mini-meter{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:14px;background:rgba(0,0,0,.16)}
 .mini-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
 .mini-value{margin-top:8px;font-size:24px;font-weight:900;color:#fff}
@@ -2955,18 +2955,18 @@ body{
 .fill.bad{background:linear-gradient(90deg,#cc0000,#ff5959)}
 .fill.info{background:linear-gradient(90deg,#2563eb,#60a5fa)}
 .section{
-  margin-top:22px;border:1px solid rgba(255,255,255,.08);border-radius:30px;background:
+  margin-top:18px;border:1px solid rgba(255,255,255,.08);border-radius:28px;background:
   radial-gradient(circle at top right, rgba(204,0,0,.09), transparent 24%),
   linear-gradient(180deg, rgba(255,255,255,.022), rgba(255,255,255,.008)),
   var(--black2);
   overflow:hidden;
 }
-.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding:22px 24px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;padding:18px 20px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
 .section-title{font-size:28px;font-weight:900;color:#fff}
-.section-sub{padding:0 24px 20px;color:var(--text2);font-size:13px;line-height:1.7}
-.piece-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:0 24px 24px}
+.section-sub{padding:0 20px 16px;color:var(--text2);font-size:13px;line-height:1.65}
+.piece-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:0 20px 20px}
 .piece{
-  border:1px solid rgba(255,255,255,.07);border-radius:26px;padding:20px;background:
+  border:1px solid rgba(255,255,255,.07);border-radius:24px;padding:18px;background:
   radial-gradient(circle at top right, rgba(255,255,255,.03), transparent 38%),
   #101010
 }
@@ -2974,18 +2974,18 @@ body{
 .piece-k{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.12em}
 .piece-title{margin-top:6px;font-size:24px;font-weight:900;color:#fff}
 .piece-model{margin-top:6px;color:var(--text2);font-size:14px;line-height:1.6}
-.piece-layout{display:grid;grid-template-columns:340px 1fr;gap:18px;margin-top:18px}
-.gauges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.gauge-card{border:1px solid rgba(255,255,255,.07);border-radius:22px;padding:14px;background:rgba(255,255,255,.02);text-align:center}
+.piece-layout{display:grid;grid-template-columns:300px 1fr;gap:16px;margin-top:16px}
+.gauges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.gauge-card{border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:12px;background:rgba(255,255,255,.02);text-align:center}
 .gauge-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
 .gauge{
   --deg:0deg;--color:var(--green);
-  width:150px;height:150px;margin:0 auto;border-radius:50%;
+  width:132px;height:132px;margin:0 auto;border-radius:50%;
   background:conic-gradient(var(--color) var(--deg), rgba(255,255,255,.08) 0);
   display:grid;place-items:center;position:relative
 }
 .gauge::before{
-  content:"";position:absolute;inset:14px;border-radius:50%;
+  content:"";position:absolute;inset:12px;border-radius:50%;
   background:radial-gradient(circle at top, rgba(255,255,255,.09), rgba(0,0,0,.18) 42%), #0f0f0f;
   border:1px solid rgba(255,255,255,.06)
 }
@@ -2994,46 +2994,49 @@ body{
 .gauge.bad{--color:var(--red2)}
 .gauge.info{--color:var(--blue)}
 .gauge-inner{position:relative;z-index:1}
-.gauge-val{font-size:28px;font-weight:900;line-height:1;color:#fff}
+.gauge-val{font-size:24px;font-weight:900;line-height:1;color:#fff}
 .gauge-unit{margin-top:7px;font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
-.piece-side{display:grid;gap:14px}
-.piece-text{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:14px 15px;background:rgba(0,0,0,.18);font-size:13px;line-height:1.75;color:var(--text2)}
+.piece-side{display:grid;gap:12px}
+.piece-text{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:13px 14px;background:rgba(0,0,0,.18);font-size:13px;line-height:1.7;color:var(--text2)}
 .piece-text strong{color:#fff}
-.stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.stat{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:14px;background:rgba(255,255,255,.018)}
+.stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stat{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:12px;background:rgba(255,255,255,.018)}
 .stat-k{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px}
 .stat-v{font-size:16px;font-weight:800;line-height:1.45;color:#fff}
 .stat-v small{display:block;color:var(--text2);font-size:12px;font-weight:500;margin-top:5px}
-.cluster-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:0 24px 24px}
+.cluster-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:0 20px 20px}
 .cluster{border:1px solid rgba(255,255,255,.07);border-radius:24px;background:#101010;overflow:hidden}
-.cluster-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 18px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.cluster-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 16px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
 .cluster-title{font-size:20px;font-weight:900;color:#fff}
-.cluster-sub{padding:0 18px 14px;color:var(--text2);font-size:12px;line-height:1.7}
-.cluster-body{padding:0 18px 18px;display:grid;gap:14px}
+.cluster-sub{padding:0 16px 12px;color:var(--text2);font-size:12px;line-height:1.6}
+.cluster-body{padding:0 16px 16px;display:grid;gap:12px}
 .table-wrap{border:1px solid rgba(255,255,255,.07);border-radius:18px;overflow:auto;background:rgba(255,255,255,.02)}
 table{width:100%;border-collapse:collapse}
-th{padding:12px 13px;text-align:left;font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(204,0,0,.08)}
-td{padding:12px 13px;font-size:13px;color:#fff;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
+th{padding:10px 12px;text-align:left;font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(204,0,0,.08)}
+td{padding:10px 12px;font-size:13px;color:#fff;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
 tbody tr:last-child td{border-bottom:none}
 .maintenance{
-  margin:0 24px 24px;border:1px solid rgba(34,197,94,.18);border-radius:24px;padding:18px 20px;
+  margin:0 20px 20px;border:1px solid rgba(34,197,94,.18);border-radius:22px;padding:16px 18px;
   background:linear-gradient(180deg, rgba(34,197,94,.08), rgba(255,255,255,.01)), #101010;
   display:flex;gap:18px;align-items:center
 }
 .maintenance-date{font-family:var(--mono);font-size:32px;font-weight:900;color:var(--green)}
 .maintenance-copy{font-size:13px;line-height:1.8;color:var(--text2)}
 .maintenance-copy strong{color:#fff}
-.resumen-box{margin:0 24px 24px;border:1px solid rgba(255,255,255,.07);border-radius:24px;padding:20px;background:rgba(255,255,255,.02);color:var(--text2);line-height:1.8}
-.resumen-box p{margin:0 0 8px}
-.resumen-box strong,.highlight{color:#fff}
+.resume-grid{display:grid;grid-template-columns:1.25fr repeat(3,minmax(0,1fr));gap:12px;padding:0 20px 20px}
+.resume-card{border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:14px;background:rgba(255,255,255,.02)}
+.resume-main{background:linear-gradient(180deg, rgba(204,0,0,.08), rgba(255,255,255,.02)), rgba(255,255,255,.02)}
+.resume-k{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+.resume-v{font-size:22px;font-weight:900;color:#fff;line-height:1.15}
+.resume-copy{margin-top:8px;color:var(--text2);font-size:13px;line-height:1.65}
 .footer{padding:26px 10px 0;text-align:center;color:var(--text3);font-size:11px;font-family:var(--mono);line-height:1.9;border-top:none}
 @media (max-width:1200px){
-  .hero-grid,.piece-layout,.cluster-grid,.piece-grid{grid-template-columns:1fr}
+  .hero-grid,.piece-layout,.cluster-grid,.piece-grid,.resume-grid{grid-template-columns:1fr}
 }
 @media (max-width:760px){
   body{padding:12px}
   .hero h1{font-size:33px}
-  .summary-strip,.lights,.mini-grid,.gauges,.stat-grid{grid-template-columns:1fr}
+  .summary-strip,.lights,.mini-grid,.gauges,.stat-grid,.resume-grid{grid-template-columns:1fr}
   .section-head{align-items:flex-start;flex-direction:column}
   .maintenance{flex-direction:column;align-items:flex-start}
 }
@@ -3686,21 +3689,42 @@ function Get-ClientSummary {
     $crashMsg = if ($Bsod | Where-Object { $_.Fecha -notmatch "^Sin BSOD recientes" }) { "&#128308; Se registraron pantallazos azules recientes." } elseif ($Shutdowns | Where-Object { $_.Fecha -notmatch "^Sin reinicios inesperados" }) { "&#9888; Se detectaron reinicios o apagados inesperados." } else { "&#9989; No se detectaron fallos graves recientes del sistema." }
 
     return @"
-<div class='resumen-box'>
-<p>$emoji <strong>Estado general del equipo: <span class='$estadoCls'>$estado</span></strong></p>
-<br>
-<p>$diskMsg</p>
-<p>$ramMsg</p>
-<p>$tempMsg</p>
-<p>$spaceMsg</p>
-<p>$crashMsg</p>
-<br>
-<p><strong>&#128295; Evaluacion del hardware:</strong> $(HtmlEnc $HwAge.Equipo_Msg)</p>
-<br>
-<p><strong>&#128680; Problemas detectados:</strong> $issueCount</p>
-<p><strong>&#128203; Recomendaciones:</strong> $recMsg</p>
-<br>
-<p><strong>&#128197; Proxima revision recomendada:</strong> <span class='highlight'>$NextDate</span></p>
+<div class='resume-grid'>
+  <div class='resume-card resume-main'>
+    <div class='resume-k'>Estado general</div>
+    <div class='resume-v'>$emoji $(HtmlEnc $estado)</div>
+    <div class='resume-copy'>$(HtmlEnc $HwAge.Equipo_Msg)</div>
+  </div>
+  <div class='resume-card'>
+    <div class='resume-k'>Discos</div>
+    <div class='resume-copy'>$(HtmlEnc $diskMsg)</div>
+  </div>
+  <div class='resume-card'>
+    <div class='resume-k'>Memoria</div>
+    <div class='resume-copy'>$(HtmlEnc $ramMsg)</div>
+  </div>
+  <div class='resume-card'>
+    <div class='resume-k'>Temperatura</div>
+    <div class='resume-copy'>$(HtmlEnc $tempMsg)</div>
+  </div>
+  <div class='resume-card'>
+    <div class='resume-k'>Estabilidad</div>
+    <div class='resume-copy'>$(HtmlEnc $crashMsg)</div>
+  </div>
+  <div class='resume-card'>
+    <div class='resume-k'>Espacio</div>
+    <div class='resume-copy'>$(HtmlEnc $spaceMsg)</div>
+  </div>
+  <div class='resume-card'>
+    <div class='resume-k'>Problemas detectados</div>
+    <div class='resume-v'>$issueCount</div>
+    <div class='resume-copy'>$(HtmlEnc $recMsg)</div>
+  </div>
+  <div class='resume-card'>
+    <div class='resume-k'>Proxima revision</div>
+    <div class='resume-v'>$NextDate</div>
+    <div class='resume-copy'>Control preventivo sugerido por PCLAF.</div>
+  </div>
 </div>
 "@
 }
