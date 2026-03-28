@@ -425,7 +425,7 @@ function Get-RamDetail {
     }
 }
 
-function Get-Temperatures {
+function Get-TemperatureSnapshotLegacy {
     $results = @()
 
     # WMI thermal zones (funciona en la mayoria de los equipos modernos)
@@ -465,6 +465,345 @@ function Get-Temperatures {
         }
     }
     return $results | Sort-Object { try { [double]$_.Celsius } catch { 0 } } -Descending
+}
+
+function Get-TemperatureState {
+    param(
+        [Parameter(Mandatory=$false)]
+        $Celsius
+    )
+
+    $value = 0
+    $ok = [double]::TryParse([string]$Celsius, [ref]$value)
+    if (-not $ok) { return "Sin sensor" }
+    if ($value -ge 90) { return "CRITICO" }
+    if ($value -ge 75) { return "ALTO" }
+    if ($value -ge 60) { return "ELEVADO" }
+    return "NORMAL"
+}
+
+function Ensure-LibreHardwareMonitor {
+    $version = "0.9.6"
+    $baseDir = Join-Path ${env:ProgramData} "PCLAF\tools\LibreHardwareMonitor\$version"
+    if ([string]::IsNullOrWhiteSpace($env:ProgramData)) {
+        $baseDir = Join-Path $env:TEMP "PCLAF\tools\LibreHardwareMonitor\$version"
+    }
+
+    $dllPath = Join-Path $baseDir "LibreHardwareMonitorLib.dll"
+    if (Test-Path $dllPath) {
+        return [PSCustomObject]@{ Ok=$true; BaseDir=$baseDir; DllPath=$dllPath; Source="cache" }
+    }
+
+    try { New-Item -ItemType Directory -Path $baseDir -Force | Out-Null } catch {}
+    $zipPath = Join-Path $env:TEMP "LibreHardwareMonitor-$version.zip"
+    $extractDir = Join-Path $env:TEMP "LibreHardwareMonitor-$version-extract"
+    $zipUrl = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v$version/LibreHardwareMonitor.zip"
+
+    try {
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+        if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue }
+        Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+        Copy-Item -Path (Join-Path $extractDir '*') -Destination $baseDir -Recurse -Force
+        if (Test-Path $dllPath) {
+            return [PSCustomObject]@{ Ok=$true; BaseDir=$baseDir; DllPath=$dllPath; Source="download" }
+        }
+    } catch {
+        Write-UploadLog -Stage "LHM" -Message ("No se pudo preparar LibreHardwareMonitor: {0}" -f $_.Exception.Message)
+    }
+
+    return [PSCustomObject]@{ Ok=$false; BaseDir=$baseDir; DllPath=$dllPath; Source="unavailable" }
+}
+
+function New-LibreHardwareComputer {
+    $prep = Ensure-LibreHardwareMonitor
+    if (-not $prep.Ok) { return $null }
+
+    try {
+        Add-Type -Path $prep.DllPath -ErrorAction Stop
+    } catch {}
+
+    try {
+        $computer = [LibreHardwareMonitor.Hardware.Computer]::new()
+        $computer.IsCpuEnabled = $true
+        $computer.IsGpuEnabled = $true
+        $computer.IsMotherboardEnabled = $true
+        $computer.IsMemoryEnabled = $true
+        $computer.IsStorageEnabled = $true
+        $computer.IsControllerEnabled = $true
+        $computer.IsPowerMonitorEnabled = $true
+        $computer.Open()
+        return [PSCustomObject]@{
+            Computer = $computer
+            Source   = "LibreHardwareMonitor $($prep.Source)"
+            BaseDir  = $prep.BaseDir
+        }
+    } catch {
+        Write-UploadLog -Stage "LHM" -Message ("No se pudo abrir LibreHardwareMonitor: {0}" -f $_.Exception.Message)
+        return $null
+    }
+}
+
+function Update-LibreHardwareTree {
+    param($Hardware)
+    try { $Hardware.Update() } catch {}
+    try {
+        foreach ($sub in @($Hardware.SubHardware)) {
+            Update-LibreHardwareTree $sub
+        }
+    } catch {}
+}
+
+function Get-LibreSensorRows {
+    param($Computer)
+
+    $rows = New-Object System.Collections.Generic.List[object]
+    function Collect-HardwareSensors {
+        param($Hw)
+        Update-LibreHardwareTree $Hw
+        foreach ($sensor in @($Hw.Sensors)) {
+            [void]$rows.Add([PSCustomObject]@{
+                Hardware     = [string]$Hw.Name
+                HardwareType = [string]$Hw.HardwareType
+                Sensor       = [string]$sensor.Name
+                SensorType   = [string]$sensor.SensorType
+                Value        = $sensor.Value
+            })
+        }
+        foreach ($sub in @($Hw.SubHardware)) {
+            Collect-HardwareSensors $sub
+        }
+    }
+
+    foreach ($hw in @($Computer.Hardware)) {
+        Collect-HardwareSensors $hw
+    }
+    return $rows
+}
+
+function Get-LibreStressSnapshot {
+    param($LhmContext)
+
+    if (-not $LhmContext -or -not $LhmContext.Computer) {
+        return [PSCustomObject]@{
+            CpuTemp = $null; CpuLoad = $null; GpuTemp = $null; GpuLoad = $null; Source = "Sin sensor"
+        }
+    }
+
+    $rows = Get-LibreSensorRows $LhmContext.Computer
+    $tempRows = @($rows | Where-Object {
+        $_.SensorType -eq 'Temperature' -and
+        ($_.Value -as [double]) -gt 0
+    })
+    $loadRows = @($rows | Where-Object {
+        $_.SensorType -eq 'Load' -and
+        ($_.Value -as [double]) -ge 0
+    })
+
+    $cpuTempCandidates = @($tempRows | Where-Object {
+        $_.HardwareType -eq 'Cpu' -and (
+            $_.Sensor -match 'Tctl|Tdie|Package|Core'
+        )
+    })
+    $gpuTempCandidates = @($tempRows | Where-Object {
+        $_.HardwareType -match '^Gpu' -and (
+            $_.Sensor -match 'Core|Hot Spot|Package|Memory'
+        )
+    })
+    $cpuLoadCandidates = @($loadRows | Where-Object {
+        $_.HardwareType -eq 'Cpu' -and (
+            $_.Sensor -match 'CPU Total|CPU Package|Total|Core Max'
+        )
+    })
+    $gpuLoadCandidates = @($loadRows | Where-Object {
+        $_.HardwareType -match '^Gpu' -and (
+            $_.Sensor -match 'GPU Core|D3D 3D|GPU D3D|Core'
+        )
+    })
+
+    $cpuTemp = $cpuTempCandidates | Sort-Object { [double]$_.Value } -Descending | Select-Object -First 1
+    $gpuTemp = $gpuTempCandidates | Sort-Object { [double]$_.Value } -Descending | Select-Object -First 1
+    $cpuLoad = $cpuLoadCandidates | Sort-Object { [double]$_.Value } -Descending | Select-Object -First 1
+    $gpuLoad = $gpuLoadCandidates | Sort-Object { [double]$_.Value } -Descending | Select-Object -First 1
+
+    [PSCustomObject]@{
+        CpuTemp = if ($cpuTemp) { [math]::Round([double]$cpuTemp.Value, 1) } else { $null }
+        CpuLoad = if ($cpuLoad) { [math]::Round([double]$cpuLoad.Value, 1) } else { $null }
+        GpuTemp = if ($gpuTemp) { [math]::Round([double]$gpuTemp.Value, 1) } else { $null }
+        GpuLoad = if ($gpuLoad) { [math]::Round([double]$gpuLoad.Value, 1) } else { $null }
+        CpuTempSensor = if ($cpuTemp) { "$($cpuTemp.Hardware) / $($cpuTemp.Sensor)" } else { "N/D" }
+        GpuTempSensor = if ($gpuTemp) { "$($gpuTemp.Hardware) / $($gpuTemp.Sensor)" } else { "N/D" }
+        Source = $LhmContext.Source
+    }
+}
+
+function Start-PclafCpuStress {
+    param([string]$StopFile)
+
+    $workers = [math]::Max(1, [Environment]::ProcessorCount)
+    $procs = @()
+    $cpuScriptPath = Join-Path $env:TEMP "PCLAF_CPU_STRESS.ps1"
+    @'
+param([string]$StopFile)
+while(-not (Test-Path $StopFile)){
+  for($i=1; $i -le 250000; $i++){
+    [void][Math]::Sqrt($i)
+  }
+}
+'@ | Set-Content -Path $cpuScriptPath -Encoding UTF8
+
+    foreach ($i in 1..$workers) {
+        try {
+            $p = Start-Process -FilePath "powershell.exe" -ArgumentList @(
+                "-NoProfile","-ExecutionPolicy","Bypass","-File",$cpuScriptPath,$StopFile
+            ) -WindowStyle Hidden -PassThru
+            if ($p) { $procs += $p }
+        } catch {}
+    }
+    return $procs
+}
+
+function Start-PclafGpuStress {
+    param([string]$StopFile)
+
+    try {
+        $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch { $isAdmin = $false }
+    if (-not $isAdmin) {
+        return [PSCustomObject]@{ Processes=@(); Mode="Sin GPU"; Note="WinSAT requiere privilegios de administrador" }
+    }
+
+    $gpuScriptPath = Join-Path $env:TEMP "PCLAF_GPU_STRESS.ps1"
+    @'
+param([string]$StopFile)
+$ErrorActionPreference = "SilentlyContinue"
+while (-not (Test-Path $StopFile)) {
+  try { & winsat d3d -totalobj 20 -objs 24 -totaltex 10 -texpobj 1 -alushader -noalpha -NoDisp -time 8 > $null 2>&1 } catch {}
+  if (Test-Path $StopFile) { break }
+  try { & winsat dwm -normalw 10 -glassw 4 -time 10 -nodisp > $null 2>&1 } catch {}
+}
+'@ | Set-Content -Path $gpuScriptPath -Encoding UTF8
+
+    try {
+        $p = Start-Process -FilePath "powershell.exe" -ArgumentList @(
+            "-NoProfile","-ExecutionPolicy","Bypass","-File",$gpuScriptPath,$StopFile
+        ) -WindowStyle Hidden -PassThru
+        return [PSCustomObject]@{ Processes=@($p); Mode="WinSAT D3D/DWM"; Note="GPU stress activo" }
+    } catch {
+        return [PSCustomObject]@{ Processes=@(); Mode="Sin GPU"; Note=$_.Exception.Message }
+    }
+}
+
+function Stop-PclafStressWorkers {
+    param(
+        [string]$StopFile,
+        $Processes
+    )
+
+    try { New-Item -ItemType File -Path $StopFile -Force | Out-Null } catch {}
+    Start-Sleep -Milliseconds 500
+    foreach ($proc in @($Processes)) {
+        try {
+            if ($proc -and -not $proc.HasExited) {
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            }
+        } catch {}
+    }
+    try { Remove-Item $StopFile -Force -ErrorAction SilentlyContinue } catch {}
+}
+
+function Invoke-ThermalStressAssessment {
+    param([int]$DurationSeconds = 300)
+
+    $legacyTemps = Get-TemperatureSnapshotLegacy
+    $lhm = New-LibreHardwareComputer
+    $sensorSource = if ($lhm) { $lhm.Source } else { "Legacy / WMI" }
+    $stopFile = Join-Path $env:TEMP ("PCLAF_STRESS_STOP_{0}.flag" -f ([guid]::NewGuid().ToString('N')))
+    $cpuWorkers = @()
+    $gpuWorkers = @()
+    $gpuMode = "Sin GPU"
+    $gpuNote = "No iniciado"
+    $samples = @()
+    $startedAt = Get-Date
+
+    try {
+        Write-UploadLog -Stage "STRESS" -Message ("Iniciando stress fijo de {0} segundos" -f $DurationSeconds)
+        $cpuWorkers = Start-PclafCpuStress -StopFile $stopFile
+        $gpuControl = Start-PclafGpuStress -StopFile $stopFile
+        $gpuWorkers = @($gpuControl.Processes)
+        $gpuMode = $gpuControl.Mode
+        $gpuNote = $gpuControl.Note
+
+        while (((Get-Date) - $startedAt).TotalSeconds -lt $DurationSeconds) {
+            $elapsed = [math]::Round(((Get-Date) - $startedAt).TotalSeconds, 0)
+            $snap = Get-LibreStressSnapshot -LhmContext $lhm
+            $samples += [PSCustomObject]@{
+                Segundo = [int]$elapsed
+                CPU_Temp_C = $snap.CpuTemp
+                CPU_Load_Pct = $snap.CpuLoad
+                GPU_Temp_C = $snap.GpuTemp
+                GPU_Load_Pct = $snap.GpuLoad
+            }
+            Start-Sleep -Seconds 2
+        }
+    } finally {
+        Stop-PclafStressWorkers -StopFile $stopFile -Processes ($cpuWorkers + $gpuWorkers)
+        try { if ($lhm -and $lhm.Computer) { $lhm.Computer.Close() } } catch {}
+    }
+
+    $cpuTempPeak = ($samples | Where-Object { $null -ne $_.CPU_Temp_C } | Measure-Object -Property CPU_Temp_C -Maximum).Maximum
+    $gpuTempPeak = ($samples | Where-Object { $null -ne $_.GPU_Temp_C } | Measure-Object -Property GPU_Temp_C -Maximum).Maximum
+    $cpuLoadPeak = ($samples | Where-Object { $null -ne $_.CPU_Load_Pct } | Measure-Object -Property CPU_Load_Pct -Maximum).Maximum
+    $gpuLoadPeak = ($samples | Where-Object { $null -ne $_.GPU_Load_Pct } | Measure-Object -Property GPU_Load_Pct -Maximum).Maximum
+
+    $rows = @()
+    if ($cpuTempPeak -ne $null -or $cpuLoadPeak -ne $null) {
+        $rows += [PSCustomObject]@{
+            Zona            = "CPU"
+            Celsius         = if ($cpuTempPeak -ne $null) { [math]::Round([double]$cpuTempPeak, 1) } else { "N/D" }
+            CargaMax_Pct    = if ($cpuLoadPeak -ne $null) { [math]::Round([double]$cpuLoadPeak, 1) } else { "N/D" }
+            Estado          = Get-TemperatureState $cpuTempPeak
+            Fuente          = $sensorSource
+            Stress_5m       = "SI"
+        }
+    }
+    if ($gpuTempPeak -ne $null -or $gpuLoadPeak -ne $null) {
+        $rows += [PSCustomObject]@{
+            Zona            = "GPU"
+            Celsius         = if ($gpuTempPeak -ne $null) { [math]::Round([double]$gpuTempPeak, 1) } else { "N/D" }
+            CargaMax_Pct    = if ($gpuLoadPeak -ne $null) { [math]::Round([double]$gpuLoadPeak, 1) } else { "N/D" }
+            Estado          = Get-TemperatureState $gpuTempPeak
+            Fuente          = $sensorSource
+            Stress_5m       = "SI"
+        }
+    }
+
+    if (-not $rows -or $rows.Count -eq 0) {
+        $rows = $legacyTemps
+        if (-not $rows -or $rows.Count -eq 0) {
+            $rows = @([PSCustomObject]@{
+                Zona="No disponible"; Celsius="N/D"; CargaMax_Pct="N/D"; Estado="Sin sensor"; Fuente=$sensorSource; Stress_5m="SI"
+            })
+        }
+    }
+
+    $summary = [PSCustomObject]@{
+        Duracion_Min     = [math]::Round($DurationSeconds / 60, 1)
+        Fuente_Sensores  = $sensorSource
+        CPU_Pico_C       = if ($cpuTempPeak -ne $null) { [math]::Round([double]$cpuTempPeak, 1) } else { "N/D" }
+        GPU_Pico_C       = if ($gpuTempPeak -ne $null) { [math]::Round([double]$gpuTempPeak, 1) } else { "N/D" }
+        CPU_CargaMax_Pct = if ($cpuLoadPeak -ne $null) { [math]::Round([double]$cpuLoadPeak, 1) } else { "N/D" }
+        GPU_CargaMax_Pct = if ($gpuLoadPeak -ne $null) { [math]::Round([double]$gpuLoadPeak, 1) } else { "N/D" }
+        GPU_Stress       = $gpuMode
+        Nota             = $gpuNote
+    }
+
+    Write-UploadLog -Stage "STRESS" -Message ("Stress 5m finalizado. CPU={0}C GPU={1}C" -f $summary.CPU_Pico_C, $summary.GPU_Pico_C)
+
+    return [PSCustomObject]@{
+        Rows    = $rows | Sort-Object { try { [double]$_.Celsius } catch { 0 } } -Descending
+        Summary = $summary
+        Samples = $samples
+    }
 }
 
 function Get-DiskHealth {
@@ -2164,8 +2503,10 @@ $sysInfo    = Get-SystemSummary
 $gpuInfo    = Get-GpuInfo
 $ramInfo    = Get-RamDetail
 
-Update-Stage 22 "Leyendo temperaturas"
-$tempInfo   = Get-Temperatures
+Update-Stage 22 "Midiendo temperaturas bajo carga (5 min)"
+$stressResult = Invoke-ThermalStressAssessment -DurationSeconds 300
+$tempInfo   = $stressResult.Rows
+$stressInfo = $stressResult.Summary
 
 Update-Stage 30 "Analizando discos (SMART, salud)"
 $diskInfo   = Get-DiskHealth
@@ -2223,7 +2564,7 @@ $record = [PSCustomObject]@{
     FinalStatus = $finalStatus; Fingerprint=$fingerprint; Comparacion=$comparison
     SystemInfo=$osInfo; SystemSummary=$sysInfo; GPU=$gpuInfo; RAM=$ramInfo
     Discos=$diskInfo; Volumenes=$volInfo; Rendimiento=$perfInfo
-    Temperaturas=$tempInfo; Seguridad=$secInfo; Defender=$defInfo
+    Temperaturas=$tempInfo; StressTermico=$stressInfo; Seguridad=$secInfo; Defender=$defInfo
     HardwareAge=$hwAge; Recomendaciones=$recs; ProblemasCliente=$clientIssues
     BSOD=$bsodInfo; ReiniciosInesperados=$shutdownInfo; WHEA=$wheaInfo
     EventosDisco=$diskEvtInfo; DispositivosConProblemas=$problemDevices
@@ -2391,7 +2732,7 @@ $CSS
     <div class="kpi"><div class="kpi-l">Memoria RAM</div><div class="kpi-v">$($sysInfo.RAM_Total_GB) GB</div></div>
     <div class="kpi"><div class="kpi-l">Uso RAM actual</div><div class="kpi-v" style="font-size:17px">$ramPctDisplay$ramBar</div></div>
     <div class="kpi"><div class="kpi-l">Disco principal</div><div class="kpi-v" style="font-size:12px">$(HtmlEnc (($diskInfo|Select-Object -First 1).Modelo))</div></div>
-    <div class="kpi"><div class="kpi-l">Temperatura CPU</div><div class="kpi-v">$(if(($tempInfo|Select-Object -First 1).Celsius -ne "N/D"){"$(($tempInfo|Select-Object -First 1).Celsius)°C"}else{"Sin sensor"})</div></div>
+    <div class="kpi"><div class="kpi-l">Pico termico 5 min</div><div class="kpi-v" style="font-size:14px">CPU $(if($stressInfo.CPU_Pico_C -ne "N/D"){"$($stressInfo.CPU_Pico_C)°C"}else{"N/D"}) / GPU $(if($stressInfo.GPU_Pico_C -ne "N/D"){"$($stressInfo.GPU_Pico_C)°C"}else{"N/D"})</div></div>
   </div>
 </div>
 
@@ -2441,7 +2782,8 @@ $(To-HtmlTable $recs)
 
 <section>
 <h2>&#127777; Temperaturas del sistema</h2>
-<div class="section-sub">Temperaturas reportadas por los sensores internos del equipo</div>
+<div class="section-sub">Picos termicos registrados durante un stress obligatorio de 5 minutos antes de cerrar el reporte</div>
+$(To-HtmlTable @($stressInfo))
 $(To-HtmlTable $tempInfo)
 </section>
 
