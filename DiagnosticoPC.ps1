@@ -132,7 +132,7 @@ function Sanitize-UploadText {
     $value = [string]$Text
     $value = $value -replace [char]0, ''
     $value = $value -replace '\uFEFF', ''
-    $value = $value -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', ''
+    $value = $value -replace '[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]', ''
 
     $sb = New-Object System.Text.StringBuilder
     foreach ($ch in $value.ToCharArray()) {
@@ -143,7 +143,15 @@ function Sanitize-UploadText {
         }
         if ($code -lt 32) { continue }
         if ([char]::IsSurrogate($ch)) { continue }
-        if ($code -in 65534, 65535) { continue }
+        if ($code -in 65534, 65535, 8232, 8233) { continue }
+        $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($ch)
+        if ($category -in @(
+            [Globalization.UnicodeCategory]::Control,
+            [Globalization.UnicodeCategory]::Format,
+            [Globalization.UnicodeCategory]::Surrogate,
+            [Globalization.UnicodeCategory]::PrivateUse,
+            [Globalization.UnicodeCategory]::OtherNotAssigned
+        )) { continue }
         [void]$sb.Append($ch)
     }
     return $sb.ToString()
@@ -160,6 +168,38 @@ function Write-UploadLog {
         $line = "[{0}] [{1}] {2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Stage, $Message
         Add-Content -Path $logFile -Value $line -Encoding UTF8
     } catch {}
+}
+
+function Get-WebErrorDetails {
+    param($ErrorRecord)
+
+    $statusCode = $null
+    $bodyText = $null
+    $message = $null
+
+    try { $message = $ErrorRecord.Exception.Message } catch {}
+
+    try {
+        $resp = $ErrorRecord.Exception.Response
+        if ($resp) {
+            try { $statusCode = [int]$resp.StatusCode } catch {}
+            try {
+                $stream = $resp.GetResponseStream()
+                if ($stream) {
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $bodyText = $reader.ReadToEnd()
+                    $reader.Dispose()
+                    $stream.Dispose()
+                }
+            } catch {}
+        }
+    } catch {}
+
+    [PSCustomObject]@{
+        StatusCode = $statusCode
+        Message    = $message
+        Body       = $bodyText
+    }
 }
 
 function Invoke-SupabaseReportUpload {
@@ -201,7 +241,8 @@ function Invoke-SupabaseReportUpload {
 
     $payloadBytes = 0
     try { $payloadBytes = [System.Text.Encoding]::UTF8.GetByteCount($payload) } catch {}
-    Write-UploadLog -Stage "PREP" -Message ("Archivo={0} Bytes={1}" -f $FileName, $payloadBytes)
+    $payloadUtf8 = [System.Text.Encoding]::UTF8.GetBytes($payload)
+    Write-UploadLog -Stage "PREP" -Message ("Archivo={0} Bytes={1} FullLen={2}->{3} ClientLen={4}->{5}" -f $FileName, $payloadBytes, ([string]$HtmlFull).Length, $htmlFullClean.Length, ([string]$HtmlClient).Length, ([string]$htmlClientClean).Length)
 
     try {
         $repairFilter = [uri]::EscapeDataString($RepairId)
@@ -210,7 +251,7 @@ function Invoke-SupabaseReportUpload {
         $existing = Invoke-RestMethod -Method Get -Uri $existingUrl -Headers $headers
         $postUrl = "$base/rest/v1/reportes"
         Write-UploadLog -Stage "POST" -Message ("Creando reporte nuevo {0}" -f $FileName)
-        $created = Invoke-RestMethod -Method Post -Uri $postUrl -Headers $headers -Body $payload
+        $created = Invoke-RestMethod -Method Post -Uri $postUrl -Headers $headers -Body $payloadUtf8
         $newId = $null
         try { $newId = $created[0].id } catch {}
         if ($existing -and $existing.Count -gt 0) {
@@ -225,17 +266,14 @@ function Invoke-SupabaseReportUpload {
         Write-UploadLog -Stage "OK" -Message ("Reporte subido a Supabase: {0}" -f $newId)
         return [PSCustomObject]@{ Ok=$true; Message="Reporte subido a Supabase"; Id=$newId }
     } catch {
-        $msg = $_.Exception.Message
-        try {
-            $resp = $_.Exception.Response
-            if ($resp) {
-                $reader = New-Object System.IO.StreamReader($resp.GetResponseStream())
-                $bodyText = $reader.ReadToEnd()
-                if (-not [string]::IsNullOrWhiteSpace($bodyText)) {
-                    $msg = "$msg | $bodyText"
-                }
-            }
-        } catch {}
+        $details = Get-WebErrorDetails $_
+        $msg = $details.Message
+        if ($details.StatusCode) {
+            $msg = "[HTTP {0}] {1}" -f $details.StatusCode, $msg
+        }
+        if (-not [string]::IsNullOrWhiteSpace($details.Body)) {
+            $msg = "$msg | $($details.Body)"
+        }
         Write-UploadLog -Stage "ERROR" -Message $msg
         return [PSCustomObject]@{ Ok=$false; Message=$msg }
     }
