@@ -2678,6 +2678,146 @@ tbody tr:hover td{background:rgba(204,0,0,.04)}
   font-size:10px;
   font-family:var(--mono);
 }
+.hardware-board{
+  margin:0 18px 18px;
+  display:grid;
+  gap:16px;
+}
+.piece-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+}
+.piece-card{
+  border:1px solid var(--border);
+  border-radius:24px;
+  padding:20px;
+  background:
+    radial-gradient(circle at top right, rgba(204,0,0,.12), transparent 28%),
+    linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.01)),
+    var(--black2);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
+}
+.piece-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:16px;
+}
+.piece-kicker{
+  color:var(--text3);
+  font-family:var(--mono);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+}
+.piece-name{
+  margin-top:6px;
+  font-size:22px;
+  font-weight:900;
+  color:#fff;
+}
+.piece-model{
+  margin-top:7px;
+  color:var(--text2);
+  font-size:13px;
+  line-height:1.6;
+}
+.piece-layout{
+  display:grid;
+  grid-template-columns:320px 1fr;
+  gap:18px;
+  align-items:start;
+}
+.piece-dials{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+.piece-side{
+  display:grid;
+  gap:14px;
+}
+.piece-summary{
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:18px;
+  padding:14px 15px;
+  background:rgba(0,0,0,.16);
+  color:var(--text2);
+  font-size:13px;
+  line-height:1.75;
+}
+.piece-summary strong{color:#fff}
+.piece-stats{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.piece-stat{
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:18px;
+  padding:14px;
+  background:rgba(0,0,0,.18);
+}
+.piece-stat-k{
+  color:var(--text3);
+  font-family:var(--mono);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  margin-bottom:8px;
+}
+.piece-stat-v{
+  color:#fff;
+  font-size:16px;
+  font-weight:800;
+  line-height:1.45;
+}
+.piece-stat-v small{
+  display:block;
+  margin-top:6px;
+  color:var(--text2);
+  font-size:12px;
+  font-weight:500;
+}
+.piece-groups{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+}
+.piece-section{
+  border:1px solid var(--border);
+  border-radius:22px;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.008)),
+    var(--black2);
+  overflow:hidden;
+}
+.piece-section-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:18px 18px 12px;
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.piece-section-title{
+  font-size:18px;
+  font-weight:900;
+  color:#fff;
+}
+.piece-section-sub{
+  padding:0 18px 14px;
+  color:var(--text2);
+  font-size:12px;
+  line-height:1.65;
+}
+.piece-section-body{
+  display:grid;
+  gap:14px;
+  padding:0 18px 18px;
+}
 .footer{
   margin-top:28px;
   padding:18px 8px 0;
@@ -2695,6 +2835,8 @@ tbody tr:hover td{background:rgba(204,0,0,.04)}
   .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
   .group-grid{grid-template-columns:1fr}
   .thermal-grid{grid-template-columns:1fr}
+  .piece-grid,.piece-groups{grid-template-columns:1fr}
+  .piece-layout{grid-template-columns:1fr}
 }
 @media (max-width:720px){
   .wrap{padding:14px 10px 28px}
@@ -2713,6 +2855,8 @@ tbody tr:hover td{background:rgba(204,0,0,.04)}
   .thermal-gauge-body{grid-template-columns:1fr}
   .dial{margin:0 auto}
   .thermal-legend{flex-direction:column}
+  .piece-dials,.piece-stats{grid-template-columns:1fr}
+  .hardware-board{margin:10px}
 }
 @media print{
   body{background:#fff;color:#111}
@@ -2725,6 +2869,173 @@ tbody tr:hover td{background:rgba(204,0,0,.04)}
   .page-kicker,.banner,.tag{border-color:#ccc!important}
   h2,th,td,.kpi-v,.meter-value,.card-title,.brand-title,.hero h1,.status-reason,.tl-value,.summary-chip .v{color:#111!important}
   .brand-title .r{color:#a00!important}
+}
+
+/* Remodelado total PCLAF por pieza */
+body{
+  margin:0;
+  padding:28px;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(204,0,0,.16), transparent 26%),
+    radial-gradient(circle at 100% 20%, rgba(204,0,0,.11), transparent 24%),
+    linear-gradient(180deg, #080808 0%, #0c0c0c 100%);
+}
+.wrap{max-width:1450px;margin:0 auto;padding:0}
+.hero{
+  position:relative;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at right top, rgba(204,0,0,.18), transparent 30%),
+    linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)),
+    var(--black2);
+  border:1px solid rgba(255,255,255,.08);
+  border-top:4px solid var(--red);
+  border-radius:32px;
+  padding:28px;
+  box-shadow:0 24px 60px rgba(0,0,0,.35);
+}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.15fr) 420px;gap:22px}
+.brand{display:flex;align-items:center;gap:16px}
+.brand-logo{
+  width:74px;height:74px;border-radius:16px;background:var(--red);
+  display:grid;place-items:center;box-shadow:0 18px 40px rgba(0,0,0,.35);overflow:hidden
+}
+.brand-logo svg{width:100%;height:100%}
+.brand-title{font-size:38px;font-weight:900;letter-spacing:.04em}
+.brand-title .r{color:var(--red2)}
+.brand-sub{font-family:var(--mono);font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.14em;margin-top:6px}
+.kicker{
+  margin-top:18px;
+  display:inline-flex;align-items:center;gap:10px;
+  padding:7px 12px;border:1px solid rgba(255,255,255,.08);border-radius:999px;
+  background:rgba(255,255,255,.025);font-family:var(--mono);font-size:11px;color:var(--text2)
+}
+.kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--red2);box-shadow:0 0 0 5px rgba(204,0,0,.15)}
+.hero h1{margin:18px 0 10px;font-size:44px;line-height:1.02;max-width:11ch}
+.meta{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 20px}
+.meta span{padding:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.03);font-size:12px;color:var(--text2)}
+.summary-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.summary-box{
+  border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:16px;background:rgba(255,255,255,.02)
+}
+.summary-k{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:8px}
+.summary-v{font-size:19px;font-weight:800;line-height:1.15;color:#fff}
+.hero-side{display:grid;gap:16px}
+.status-card,.mini-board{
+  border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:18px;background:
+  linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)), #171717
+}
+.status-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.status-k{font-family:var(--mono);font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.12em}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;border:1px solid transparent}
+.pill::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.pill.ok{color:var(--green);background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.24)}
+.pill.warn{color:var(--amber);background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.26)}
+.pill.bad{color:#ff7777;background:rgba(204,0,0,.12);border-color:rgba(204,0,0,.24)}
+.pill.info{color:var(--blue);background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.24)}
+.status-copy{font-size:14px;line-height:1.7;color:var(--text2)}
+.lights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.light{display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.07);border-radius:15px;padding:11px 12px;background:rgba(0,0,0,.16)}
+.dot{width:11px;height:11px;border-radius:50%}
+.dot.ok{background:var(--green)}
+.dot.warn{background:var(--amber)}
+.dot.bad{background:var(--red2)}
+.light .t1{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.11em}
+.light .t2{font-size:12px;color:#fff;margin-top:4px}
+.mini-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.mini-title{font-size:20px;font-weight:900}
+.mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.mini-meter{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:14px;background:rgba(0,0,0,.16)}
+.mini-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+.mini-value{margin-top:8px;font-size:24px;font-weight:900;color:#fff}
+.track{margin-top:10px;height:8px;border-radius:999px;background:#0a0a0a;border:1px solid rgba(255,255,255,.08);overflow:hidden}
+.fill{height:100%;border-radius:999px}
+.fill.ok{background:linear-gradient(90deg,#1bbf63,#4ade80)}
+.fill.warn{background:linear-gradient(90deg,#d88b00,#fbbf24)}
+.fill.bad{background:linear-gradient(90deg,#cc0000,#ff5959)}
+.fill.info{background:linear-gradient(90deg,#2563eb,#60a5fa)}
+.section{
+  margin-top:22px;border:1px solid rgba(255,255,255,.08);border-radius:30px;background:
+  radial-gradient(circle at top right, rgba(204,0,0,.09), transparent 24%),
+  linear-gradient(180deg, rgba(255,255,255,.022), rgba(255,255,255,.008)),
+  var(--black2);
+  overflow:hidden;
+}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding:22px 24px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.section-title{font-size:28px;font-weight:900;color:#fff}
+.section-sub{padding:0 24px 20px;color:var(--text2);font-size:13px;line-height:1.7}
+.piece-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:0 24px 24px}
+.piece{
+  border:1px solid rgba(255,255,255,.07);border-radius:26px;padding:20px;background:
+  radial-gradient(circle at top right, rgba(255,255,255,.03), transparent 38%),
+  #101010
+}
+.piece-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.piece-k{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.12em}
+.piece-title{margin-top:6px;font-size:24px;font-weight:900;color:#fff}
+.piece-model{margin-top:6px;color:var(--text2);font-size:14px;line-height:1.6}
+.piece-layout{display:grid;grid-template-columns:340px 1fr;gap:18px;margin-top:18px}
+.gauges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.gauge-card{border:1px solid rgba(255,255,255,.07);border-radius:22px;padding:14px;background:rgba(255,255,255,.02);text-align:center}
+.gauge-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+.gauge{
+  --deg:0deg;--color:var(--green);
+  width:150px;height:150px;margin:0 auto;border-radius:50%;
+  background:conic-gradient(var(--color) var(--deg), rgba(255,255,255,.08) 0);
+  display:grid;place-items:center;position:relative
+}
+.gauge::before{
+  content:"";position:absolute;inset:14px;border-radius:50%;
+  background:radial-gradient(circle at top, rgba(255,255,255,.09), rgba(0,0,0,.18) 42%), #0f0f0f;
+  border:1px solid rgba(255,255,255,.06)
+}
+.gauge.ok{--color:var(--green)}
+.gauge.warn{--color:var(--amber)}
+.gauge.bad{--color:var(--red2)}
+.gauge.info{--color:var(--blue)}
+.gauge-inner{position:relative;z-index:1}
+.gauge-val{font-size:28px;font-weight:900;line-height:1;color:#fff}
+.gauge-unit{margin-top:7px;font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+.piece-side{display:grid;gap:14px}
+.piece-text{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:14px 15px;background:rgba(0,0,0,.18);font-size:13px;line-height:1.75;color:var(--text2)}
+.piece-text strong{color:#fff}
+.stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.stat{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:14px;background:rgba(255,255,255,.018)}
+.stat-k{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px}
+.stat-v{font-size:16px;font-weight:800;line-height:1.45;color:#fff}
+.stat-v small{display:block;color:var(--text2);font-size:12px;font-weight:500;margin-top:5px}
+.cluster-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:0 24px 24px}
+.cluster{border:1px solid rgba(255,255,255,.07);border-radius:24px;background:#101010;overflow:hidden}
+.cluster-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 18px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.cluster-title{font-size:20px;font-weight:900;color:#fff}
+.cluster-sub{padding:0 18px 14px;color:var(--text2);font-size:12px;line-height:1.7}
+.cluster-body{padding:0 18px 18px;display:grid;gap:14px}
+.table-wrap{border:1px solid rgba(255,255,255,.07);border-radius:18px;overflow:auto;background:rgba(255,255,255,.02)}
+table{width:100%;border-collapse:collapse}
+th{padding:12px 13px;text-align:left;font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(204,0,0,.08)}
+td{padding:12px 13px;font-size:13px;color:#fff;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+.maintenance{
+  margin:0 24px 24px;border:1px solid rgba(34,197,94,.18);border-radius:24px;padding:18px 20px;
+  background:linear-gradient(180deg, rgba(34,197,94,.08), rgba(255,255,255,.01)), #101010;
+  display:flex;gap:18px;align-items:center
+}
+.maintenance-date{font-family:var(--mono);font-size:32px;font-weight:900;color:var(--green)}
+.maintenance-copy{font-size:13px;line-height:1.8;color:var(--text2)}
+.maintenance-copy strong{color:#fff}
+.resumen-box{margin:0 24px 24px;border:1px solid rgba(255,255,255,.07);border-radius:24px;padding:20px;background:rgba(255,255,255,.02);color:var(--text2);line-height:1.8}
+.resumen-box p{margin:0 0 8px}
+.resumen-box strong,.highlight{color:#fff}
+.footer{padding:26px 10px 0;text-align:center;color:var(--text3);font-size:11px;font-family:var(--mono);line-height:1.9;border-top:none}
+@media (max-width:1200px){
+  .hero-grid,.piece-layout,.cluster-grid,.piece-grid{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  body{padding:12px}
+  .hero h1{font-size:33px}
+  .summary-strip,.lights,.mini-grid,.gauges,.stat-grid{grid-template-columns:1fr}
+  .section-head{align-items:flex-start;flex-direction:column}
+  .maintenance{flex-direction:column;align-items:flex-start}
 }
 </style>
 '@
@@ -2981,6 +3292,368 @@ function Get-ThermalOverviewHtml {
 "@
 }
 
+function Get-DialHtml {
+    param(
+        [string]$Label,
+        [string]$Value,
+        [double]$Percent = 0,
+        [string]$Tone = "info",
+        [string]$Unit = "",
+        [switch]$Small
+    )
+
+    $pct = [math]::Max(0, [math]::Min(100, [math]::Round($Percent, 0)))
+    $angle = [math]::Round(($pct / 100) * 360, 0)
+    $sizeCls = if ($Small) { " small" } else { "" }
+    return @"
+<div class='thermal-dial-card'>
+  <div class='thermal-dial-label'>$(HtmlEnc $Label)</div>
+  <div class='dial $Tone$sizeCls' style='--angle:${angle}deg'>
+    <div class='dial-inner'>
+      <div class='dial-value'>$(HtmlEnc $Value)</div>
+      <div class='dial-unit'>$(HtmlEnc $Unit)</div>
+    </div>
+  </div>
+</div>
+"@
+}
+
+function Get-PropValue {
+    param(
+        $Object,
+        [string[]]$Names,
+        [string]$Default = "N/D"
+    )
+
+    if ($null -eq $Object) { return $Default }
+    foreach ($name in $Names) {
+        $prop = $Object.PSObject.Properties[$name]
+        if ($prop) {
+            $value = [string]$prop.Value
+            if (-not [string]::IsNullOrWhiteSpace($value)) {
+                return $value
+            }
+        }
+    }
+    return $Default
+}
+
+function Get-PillHtml {
+    param(
+        [string]$Text,
+        [string]$Tone = "info"
+    )
+
+    $cls = switch ($Tone) {
+        "ok" { "ok" }
+        "warn" { "warn" }
+        "bad" { "bad" }
+        default { "info" }
+    }
+    return "<div class='pill $cls'>$(HtmlEnc $Text)</div>"
+}
+
+function Get-GaugeCardHtml {
+    param(
+        [string]$Label,
+        [string]$Value,
+        [double]$Percent = 0,
+        [string]$Tone = "info",
+        [string]$Unit = ""
+    )
+
+    $pct = [math]::Max(0, [math]::Min(100, [math]::Round($Percent, 0)))
+    $angle = [math]::Round(($pct / 100) * 360, 0)
+    $cls = switch ($Tone) {
+        "ok" { "ok" }
+        "warn" { "warn" }
+        "bad" { "bad" }
+        default { "info" }
+    }
+
+    return @"
+<div class='gauge-card'>
+  <div class='gauge-label'>$(HtmlEnc $Label)</div>
+  <div class='gauge $cls' style='--deg:${angle}deg'>
+    <div class='gauge-inner'>
+      <div class='gauge-val'>$(HtmlEnc $Value)</div>
+      <div class='gauge-unit'>$(HtmlEnc $Unit)</div>
+    </div>
+  </div>
+</div>
+"@
+}
+
+function Get-QuickMeterHtml {
+    param(
+        [string]$Label,
+        [string]$Value,
+        [double]$Percent = 0,
+        [string]$Tone = "ok"
+    )
+
+    $pct = [math]::Max(0, [math]::Min(100, [math]::Round($Percent, 0)))
+    $cls = switch ($Tone) {
+        "ok" { "ok" }
+        "warn" { "warn" }
+        "bad" { "bad" }
+        default { "info" }
+    }
+
+    return @"
+<div class='mini-meter'>
+  <div class='mini-label'>$(HtmlEnc $Label)</div>
+  <div class='mini-value'>$(HtmlEnc $Value)</div>
+  <div class='track'><div class='fill $cls' style='width:${pct}%'></div></div>
+</div>
+"@
+}
+
+function Get-LightHtml {
+    param(
+        [string]$Label,
+        [string]$Value,
+        [string]$Tone = "ok"
+    )
+
+    $cls = switch ($Tone) {
+        "ok" { "ok" }
+        "warn" { "warn" }
+        "bad" { "bad" }
+        default { "warn" }
+    }
+
+    return @"
+<div class='light'>
+  <div class='dot $cls'></div>
+  <div>
+    <div class='t1'>$(HtmlEnc $Label)</div>
+    <div class='t2'>$(HtmlEnc $Value)</div>
+  </div>
+</div>
+"@
+}
+
+function New-ClusterRow {
+    param(
+        [string]$Campo,
+        [string]$Valor
+    )
+
+    return [PSCustomObject]@{
+        Campo = $Campo
+        Valor = $Valor
+    }
+}
+
+function Get-ClusterHtml {
+    param(
+        [string]$Title,
+        [string]$Subtitle,
+        [string]$Tone = "info",
+        [string]$BodyHtml
+    )
+
+    return @"
+<article class='cluster'>
+  <div class='cluster-head'>
+    <div class='cluster-title'>$(HtmlEnc $Title)</div>
+    $(Get-PillHtml -Text $Title -Tone $Tone)
+  </div>
+  <div class='cluster-sub'>$(HtmlEnc $Subtitle)</div>
+  <div class='cluster-body'>
+    $BodyHtml
+  </div>
+</article>
+"@
+}
+
+function Get-HardwareDashboardHtml {
+    param(
+        $SysInfo,
+        $GpuInfo,
+        $PerfInfo,
+        $StressInfo,
+        $TempInfo,
+        $DiskInfo,
+        $VolInfo,
+        $OsInfo,
+        $DefInfo,
+        $FinalStatus
+    )
+
+    $gpu = @($GpuInfo | Where-Object { $_.GPU }) | Select-Object -First 1
+    $cpuTemp = @($TempInfo | Where-Object { $_.Zona -eq "CPU" } | Select-Object -First 1)
+    $gpuTemp = @($TempInfo | Where-Object { $_.Zona -eq "GPU" } | Select-Object -First 1)
+    $mainDisk = @($DiskInfo | Select-Object -First 1)
+    $mainVol = @($VolInfo | Sort-Object {[double]($_.Usado_Pct -as [double])} -Descending | Select-Object -First 1)
+    $firstRamStick = @($ramInfo | Select-Object -First 1)
+
+    $cpuLoad = 0; [void][double]::TryParse([string]$StressInfo.CPU_CargaMax_Pct, [ref]$cpuLoad)
+    $gpuLoad = 0; [void][double]::TryParse([string]$StressInfo.GPU_CargaMax_Pct, [ref]$gpuLoad)
+    $ramUse = 0; [void][double]::TryParse([string]$PerfInfo.RAM_Pct, [ref]$ramUse)
+    $diskUse = 0; [void][double]::TryParse([string]$mainVol.Usado_Pct, [ref]$diskUse)
+
+    $cpuTempNum = 0; $cpuHasTemp = [double]::TryParse([string]$StressInfo.CPU_Pico_C, [ref]$cpuTempNum)
+    $gpuTempNum = 0; $gpuHasTemp = [double]::TryParse([string]$StressInfo.GPU_Pico_C, [ref]$gpuTempNum)
+
+    $gpuVram = if ($gpu -and $gpu.VRAM_GB) { "$($gpu.VRAM_GB) GB" } else { "N/D" }
+    $ramSlots = Get-PropValue -Object $SysInfo -Names @("Slots_RAM","SlotsRAM") -Default "N/D"
+    $ramModules = @($ramInfo).Count
+    $ramSpeed = Get-PropValue -Object $firstRamStick -Names @("Velocidad_MHz","Speed_MHz","Velocidad","Frecuencia_MHz") -Default "N/D"
+    if ($ramSpeed -ne "N/D" -and $ramSpeed -notmatch "MHz") { $ramSpeed = "$ramSpeed MHz" }
+    $diskHealth = if ($mainDisk -and $mainDisk.Estado) { [string]$mainDisk.Estado } else { "N/D" }
+    $diskType = Get-PropValue -Object $mainDisk -Names @("Tipo","MediaType","Interface","BusType") -Default "N/D"
+    $trimState = Get-PropValue -Object $mainDisk -Names @("TRIM") -Default "N/D"
+    if ($trimState -eq "N/D" -and $diskType -match "SSD") { $trimState = "SSD detectado" }
+    $diskFree = Get-PropValue -Object $mainVol -Names @("Libre_GB","LibreGB","Free_GB") -Default "N/D"
+    if ($diskFree -ne "N/D" -and $diskFree -notmatch "GB") { $diskFree = "$diskFree GB" }
+    $diskModel = Get-PropValue -Object $mainDisk -Names @("Modelo","Model","FriendlyName") -Default "Disco principal no detectado"
+    $diskVolume = Get-PropValue -Object $mainVol -Names @("Volumen","Unidad","Drive","Volume") -Default "N/D"
+
+    $cpuTempTone = Get-ThermalTone -Celsius $StressInfo.CPU_Pico_C -Estado $cpuTemp.Estado
+    $gpuTempTone = Get-ThermalTone -Celsius $StressInfo.GPU_Pico_C -Estado $gpuTemp.Estado
+    $cpuLoadTone = if ($cpuLoad -ge 90) { "bad" } elseif ($cpuLoad -ge 70) { "warn" } else { "ok" }
+    $gpuLoadTone = if ($gpuLoad -ge 90) { "bad" } elseif ($gpuLoad -ge 70) { "warn" } elseif ($gpuLoad -gt 0) { "ok" } else { "info" }
+    $ramTone = if ($ramUse -ge 85) { "bad" } elseif ($ramUse -ge 65) { "warn" } else { "ok" }
+    $ramCapacityTone = if ([double]$SysInfo.RAM_Total_GB -lt 8) { "bad" } elseif ([double]$SysInfo.RAM_Total_GB -lt 16) { "warn" } else { "ok" }
+    $diskTone = if ($diskUse -ge 95 -or $diskHealth -match "REEMPLAZAR|MAL") { "bad" } elseif ($diskUse -ge 85 -or $diskHealth -match "SIN DATOS|N/D") { "warn" } else { "ok" }
+    $diskHealthTone = if ($diskHealth -match "BIEN|OK|SANO|HEALTHY") { "ok" } elseif ($diskHealth -match "SIN DATOS|N/D") { "warn" } else { "bad" }
+
+    $cpuPillText = if ($cpuHasTemp) { if ($cpuTempNum -ge 85) { "Critica" } elseif ($cpuTempNum -ge 65) { "Elevada" } else { "Normal" } } else { "Sin sensor" }
+    $gpuPillText = if ($gpuHasTemp) { if ($gpuTempNum -ge 85) { "Critica" } elseif ($gpuTempNum -ge 65) { "Elevada" } else { "Normal" } } else { "Sin sensor" }
+    $ramPillText = if ($ramUse -ge 85) { "Exigida" } elseif ($ramUse -ge 65) { "Alta" } else { "Buena" }
+    $diskPillText = if ($diskHealth -match "BIEN|OK|SANO|HEALTHY") { "Sano" } elseif ($diskHealth -match "SIN DATOS|N/D") { "Sin datos" } else { $diskHealth }
+
+    $cpuCard = @"
+<article class='piece'>
+  <div class='piece-top'>
+    <div>
+      <div class='piece-k'>Pieza principal</div>
+      <div class='piece-title'>CPU</div>
+      <div class='piece-model'>$(HtmlEnc $SysInfo.CPU)</div>
+    </div>
+    $(Get-PillHtml -Text $cpuPillText -Tone $cpuTempTone)
+  </div>
+  <div class='piece-layout'>
+    <div class='gauges'>
+      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($cpuHasTemp){"$([math]::Round($cpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($cpuHasTemp){$cpuTempNum}else{6}) -Tone $cpuTempTone -Unit "0 a 100 °c")
+      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($cpuLoad,0))%" -Percent $cpuLoad -Tone $cpuLoadTone -Unit "stress 5 min")
+    </div>
+    <div class='piece-side'>
+      <div class='piece-text'><strong>Lectura tecnica:</strong> el procesador fue exigido durante la corrida fija y este bloque resume plataforma, carga y termica real del CPU. Si la temperatura queda en <strong>N/D</strong>, ese sensor no esta expuesto correctamente por hardware o driver.</div>
+      <div class='stat-grid'>
+        <div class='stat'><div class='stat-k'>Motherboard</div><div class='stat-v'>$(HtmlEnc $SysInfo.Motherboard)</div></div>
+        <div class='stat'><div class='stat-k'>Nucleos / hilos</div><div class='stat-v'>$($SysInfo.Cores) / $($SysInfo.Hilos)</div></div>
+        <div class='stat'><div class='stat-k'>Sistema operativo</div><div class='stat-v'>$(HtmlEnc $OsInfo.SO)</div></div>
+        <div class='stat'><div class='stat-k'>Stress</div><div class='stat-v'>$(HtmlEnc $StressInfo.CPU_Stress)<small>Pico de uso observado durante la prueba fija.</small></div></div>
+      </div>
+    </div>
+  </div>
+</article>
+"@
+
+    $gpuCard = @"
+<article class='piece'>
+  <div class='piece-top'>
+    <div>
+      <div class='piece-k'>Grafica</div>
+      <div class='piece-title'>GPU</div>
+      <div class='piece-model'>$(HtmlEnc $(if($gpu){$gpu.GPU}else{"GPU no detectada"}))</div>
+    </div>
+    $(Get-PillHtml -Text $gpuPillText -Tone $gpuTempTone)
+  </div>
+  <div class='piece-layout'>
+    <div class='gauges'>
+      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($gpuHasTemp){"$([math]::Round($gpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($gpuHasTemp){$gpuTempNum}else{0}) -Tone $gpuTempTone -Unit "0 a 100 °c")
+      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($gpuLoad,0))%" -Percent $gpuLoad -Tone $gpuLoadTone -Unit "stress 5 min")
+    </div>
+    <div class='piece-side'>
+      <div class='piece-text'><strong>Lectura tecnica:</strong> este es el bloque clave para validar mantenimiento termico. Resume carga maxima real de video, pico termico y el metodo de stress usado sobre la GPU.</div>
+      <div class='stat-grid'>
+        <div class='stat'><div class='stat-k'>VRAM</div><div class='stat-v'>$(HtmlEnc $gpuVram)</div></div>
+        <div class='stat'><div class='stat-k'>Driver</div><div class='stat-v'>$(HtmlEnc $(Get-PropValue -Object $gpu -Names @("DriverVersion","Driver","Version_Driver") -Default "N/D"))</div></div>
+        <div class='stat'><div class='stat-k'>Stress</div><div class='stat-v'>$(HtmlEnc $StressInfo.GPU_Stress)</div></div>
+        <div class='stat'><div class='stat-k'>Accion sugerida</div><div class='stat-v'>$(if($gpuHasTemp -and $gpuTempNum -ge 85){"Revisar pasta y flujo de aire"}elseif($gpuHasTemp -and $gpuTempNum -ge 65){"Controlar suciedad y curva termica"}else{"Sin señal termica critica"})<small>Fuente: $(HtmlEnc $(if($gpuTemp){$gpuTemp.Fuente}else{"N/D"}))</small></div></div>
+      </div>
+    </div>
+  </div>
+</article>
+"@
+
+    $ramCard = @"
+<article class='piece'>
+  <div class='piece-top'>
+    <div>
+      <div class='piece-k'>Memoria</div>
+      <div class='piece-title'>RAM</div>
+      <div class='piece-model'>$($SysInfo.RAM_Total_GB) GB instalados • $(if($ramModules -gt 0){"$ramModules modulos"}else{"modulos N/D"})</div>
+    </div>
+    $(Get-PillHtml -Text $ramPillText -Tone $ramTone)
+  </div>
+  <div class='piece-layout'>
+    <div class='gauges'>
+      $(Get-GaugeCardHtml -Label "Uso actual" -Value "$(if($PerfInfo.RAM_Pct){$PerfInfo.RAM_Pct}else{"N/D"})%" -Percent $ramUse -Tone $ramTone -Unit "0 a 100 %")
+      $(Get-GaugeCardHtml -Label "Capacidad relativa" -Value "$($SysInfo.RAM_Total_GB) GB" -Percent ([math]::Min(100, ([double]$SysInfo.RAM_Total_GB / 32) * 100)) -Tone $ramCapacityTone -Unit "escala 32 gb")
+    </div>
+    <div class='piece-side'>
+      <div class='piece-text'><strong>Lectura tecnica:</strong> la memoria aparece agrupada una sola vez y resume uso real, capacidad instalada y margen operativo para multitarea.</div>
+      <div class='stat-grid'>
+        <div class='stat'><div class='stat-k'>Uso medido</div><div class='stat-v'>$(if($PerfInfo.RAM_Usada_GB){"$($PerfInfo.RAM_Usada_GB) GB"}else{"N/D"})<small>Sobre $($SysInfo.RAM_Total_GB) GB detectados.</small></div></div>
+        <div class='stat'><div class='stat-k'>Velocidad</div><div class='stat-v'>$(HtmlEnc $ramSpeed)</div></div>
+        <div class='stat'><div class='stat-k'>Slots</div><div class='stat-v'>$(HtmlEnc $ramSlots)</div></div>
+        <div class='stat'><div class='stat-k'>Evaluacion</div><div class='stat-v'>$(if($ramUse -ge 85){"Conviene ampliar o bajar carga"}elseif($ramUse -ge 65){"Uso elevado en este momento"}else{"Margen normal"})<small>Estado general: $(HtmlEnc $FinalStatus.EstadoGeneral)</small></div></div>
+      </div>
+    </div>
+  </div>
+</article>
+"@
+
+    $diskCard = @"
+<article class='piece'>
+  <div class='piece-top'>
+    <div>
+      <div class='piece-k'>Almacenamiento</div>
+      <div class='piece-title'>Disco</div>
+      <div class='piece-model'>$(HtmlEnc $diskModel)</div>
+    </div>
+    $(Get-PillHtml -Text $diskPillText -Tone $diskHealthTone)
+  </div>
+  <div class='piece-layout'>
+    <div class='gauges'>
+      $(Get-GaugeCardHtml -Label "Uso del volumen" -Value "$(if($mainVol){$mainVol.Usado_Pct}else{"N/D"})%" -Percent $diskUse -Tone $diskTone -Unit "0 a 100 %")
+      $(Get-GaugeCardHtml -Label "Salud" -Value $(if($diskHealth){"$diskHealth"}else{"N/D"}) -Percent $(if($diskHealth -match "BIEN|OK|SANO|HEALTHY"){100}elseif($diskHealth -match "SIN DATOS|N/D"){55}else{18}) -Tone $diskHealthTone -Unit "smart / salud")
+    </div>
+    <div class='piece-side'>
+      <div class='piece-text'><strong>Lectura tecnica:</strong> el almacenamiento se resume con estado SMART, ocupacion real y datos utiles para decidir si hay riesgo operativo o falta mantenimiento.</div>
+      <div class='stat-grid'>
+        <div class='stat'><div class='stat-k'>Espacio libre</div><div class='stat-v'>$(HtmlEnc $diskFree)</div></div>
+        <div class='stat'><div class='stat-k'>Tipo</div><div class='stat-v'>$(HtmlEnc $diskType)</div></div>
+        <div class='stat'><div class='stat-k'>Volumen</div><div class='stat-v'>$(HtmlEnc $diskVolume)</div></div>
+        <div class='stat'><div class='stat-k'>TRIM</div><div class='stat-v'>$(HtmlEnc $trimState)</div></div>
+      </div>
+    </div>
+  </div>
+</article>
+"@
+
+    return @"
+<section class='section'>
+  <div class='section-head'>
+    <div class='section-title'>Tablero por pieza</div>
+    $(Get-PillHtml -Text "Sin repeticiones" -Tone "warn")
+  </div>
+  <div class='section-sub'>Cada componente aparece una sola vez. En cada tarjeta vas a ver temperatura, uso, contexto tecnico y los datos que realmente sirven para evaluarlo.</div>
+  <div class='piece-grid'>
+    $cpuCard
+    $gpuCard
+    $ramCard
+    $diskCard
+  </div>
+</section>
+"@
+}
+
 function Get-ClientSummary {
     param($Status, $HwAge, $Vols, $Disks, $Perf, $Temps, $Rec, $NextDate, $Issues, $Bsod, $Shutdowns)
     $estado = $Status.EstadoGeneral
@@ -3169,24 +3842,73 @@ try {
 $critCount = 0; try { $critCount = @($critEvts).Count } catch {}
 $bsodCount = 0; try { $bsodCount = @($bsodInfo | Where-Object { $_.Fecha -notmatch "^Sin BSOD recientes" }).Count } catch {}
 
-$clientMeterHtml = (
-    (Get-MeterCard -Label "RAM actual" -Percent $ramBarPct -Display $ramPctDisplay -Tone $(if($ramPctDisplay -eq "N/D"){"warn"}elseif($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"}) -Hint "Uso actual de memoria del sistema") +
-    (Get-MeterCard -Label "Disco principal" -Percent $diskUsePct -Display $diskPctDisplay -Tone $(if($diskPctDisplay -eq "N/D"){"warn"}elseif($diskUsePct -ge 95){"bad"}elseif($diskUsePct -ge 85){"warn"}else{"ok"}) -Hint "Ocupacion de la unidad mas cargada") +
-    (Get-MeterCard -Label "Temperatura" -Percent $tempPct -Display $(if($topTemp.Celsius -ne "N/D"){"$($topTemp.Celsius) C"}else{"N/D"}) -Tone $(if($topTemp.Estado -in @("CRITICO","ALTO")){"bad"}elseif($topTemp.Estado -eq "ELEVADO"){"warn"}else{"ok"}) -Hint "Referencia visual para la temperatura reportada") +
-    (Get-MeterCard -Label "Alertas graves" -Percent ([math]::Min(100, ($bsodCount*25)+($critCount*5))) -Display "$bsodCount BSOD / $critCount eventos" -Tone $(if($bsodCount -gt 0){"bad"}elseif($critCount -gt 0){"warn"}else{"ok"}) -Hint "Pantallazos azules y eventos relevantes recientes")
+$heroMainDisk = $diskInfo | Select-Object -First 1
+$heroGpu = $gpuInfo | Where-Object { $_.GPU } | Select-Object -First 1
+$maxStressTemp = 0
+if ($stressInfo.CPU_Pico_C -ne "N/D") { try { $maxStressTemp = [math]::Max($maxStressTemp, [double]$stressInfo.CPU_Pico_C) } catch {} }
+if ($stressInfo.GPU_Pico_C -ne "N/D") { try { $maxStressTemp = [math]::Max($maxStressTemp, [double]$stressInfo.GPU_Pico_C) } catch {} }
+$maxStressTempDisplay = if ($maxStressTemp -gt 0) { "$([math]::Round($maxStressTemp,0))°C" } else { "N/D" }
+$maxStressTempTone = if ($maxStressTemp -ge 85) { "bad" } elseif ($maxStressTemp -ge 65) { "warn" } elseif ($maxStressTemp -gt 0) { "ok" } else { "info" }
+$heroQuickHtml = (
+    (Get-QuickMeterHtml -Label "CPU actual" -Value $cpuPctDisplay -Percent $cpuPct -Tone $(if($cpuPctDisplay -eq "N/D"){"warn"}elseif($cpuPct -ge 90){"bad"}elseif($cpuPct -ge 70){"warn"}else{"ok"})) +
+    (Get-QuickMeterHtml -Label "RAM actual" -Value $ramPctDisplay -Percent $ramBarPct -Tone $(if($ramPctDisplay -eq "N/D"){"warn"}elseif($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"})) +
+    (Get-QuickMeterHtml -Label "Disco ocupado" -Value $diskPctDisplay -Percent $diskUsePct -Tone $(if($diskPctDisplay -eq "N/D"){"warn"}elseif($diskUsePct -ge 95){"bad"}elseif($diskUsePct -ge 85){"warn"}else{"ok"})) +
+    (Get-QuickMeterHtml -Label "Temp maxima" -Value $maxStressTempDisplay -Percent $maxStressTemp -Tone $maxStressTempTone)
 )
-
-$techMeterHtml = (
-    (Get-MeterCard -Label "CPU actual" -Percent $cpuPct -Display $cpuPctDisplay -Tone $(if($cpuPctDisplay -eq "N/D"){"warn"}elseif($cpuPct -ge 90){"bad"}elseif($cpuPct -ge 70){"warn"}else{"ok"}) -Hint "Uso instantaneo del procesador") +
-    (Get-MeterCard -Label "RAM actual" -Percent $ramBarPct -Display $ramPctDisplay -Tone $(if($ramPctDisplay -eq "N/D"){"warn"}elseif($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"}) -Hint "Uso instantaneo de memoria") +
-    (Get-MeterCard -Label "Disco / volumen" -Percent $diskUsePct -Display $diskPctDisplay -Tone $(if($diskPctDisplay -eq "N/D"){"warn"}elseif($diskUsePct -ge 95){"bad"}elseif($diskUsePct -ge 85){"warn"}else{"ok"}) -Hint "Volumen con mayor ocupacion") +
-    (Get-MeterCard -Label "Temperatura" -Percent $tempPct -Display $(if($topTemp.Celsius -ne "N/D"){"$($topTemp.Celsius) C"}else{"N/D"}) -Tone $(if($topTemp.Estado -in @("CRITICO","ALTO")){"bad"}elseif($topTemp.Estado -eq "ELEVADO"){"warn"}else{"ok"}) -Hint "Sensor mas exigido informado"),
-    (Get-MeterCard -Label "Eventos criticos" -Percent ([math]::Min(100, $critCount*8)) -Display "$critCount eventos" -Tone $(if($critCount -gt 8){"bad"}elseif($critCount -gt 0){"warn"}else{"ok"}) -Hint "Eventos criticos relevados en 30 dias"),
-    (Get-MeterCard -Label "Defensa" -Percent $(if($defInfo.Activo -eq $true){100}else{25}) -Display $(if($defInfo.Activo -eq $true){"Activa"}else{"Inactiva"}) -Tone $(if($defInfo.Activo -eq $true){"ok"}else{"bad"}) -Hint "Estado de Windows Defender")
+$statusTone = if ($finalStatus.EstadoGeneral -match "REVISION|CRITICO|MAL") { "bad" } elseif ($finalStatus.EstadoGeneral -match "OBSERVACIONES|USABLE") { "warn" } else { "ok" }
+$statusCopy = if (-not [string]::IsNullOrWhiteSpace([string]$finalStatus.Motivos)) { [string]$finalStatus.Motivos } else { "El equipo fue revisado por PCLAF y este tablero resume el estado real por pieza, con stress fijo de 5 minutos para CPU y GPU." }
+$lightsHtml = (
+    (Get-LightHtml -Label "Hardware" -Value $(if($hwAge.Equipo_Msg){$hwAge.Equipo_Msg}else{$hwAge.Equipo_Estado}) -Tone $(if($hwAge.Equipo_Estado -match "VIGENTE|ACTUAL"){ "ok" } elseif($hwAge.Equipo_Estado -match "USABLE"){ "warn" } else { "bad" })) +
+    (Get-LightHtml -Label "Discos" -Value $(if($heroMainDisk){$heroMainDisk.Estado}else{"N/D"}) -Tone $(if($heroMainDisk -and $heroMainDisk.Estado -match "BIEN|OK|HEALTHY"){ "ok" } elseif($heroMainDisk -and $heroMainDisk.Estado -match "SIN DATOS|N/D"){ "warn" } else { "bad" })) +
+    (Get-LightHtml -Label "RAM" -Value $(if($ramPctDisplay -eq "N/D"){"Uso no disponible"}else{"$ramPctDisplay usada"}) -Tone $(if($ramPctDisplay -eq "N/D"){"warn"}elseif($ramBarPct -ge 85){"bad"}elseif($ramBarPct -ge 65){"warn"}else{"ok"})) +
+    (Get-LightHtml -Label "Temperatura" -Value $(if($maxStressTemp -gt 0){$maxStressTempDisplay}else{"Sin sensor concluyente"}) -Tone $maxStressTempTone)
+)
+$hardwareDashboardHtml = Get-HardwareDashboardHtml -SysInfo $sysInfo -GpuInfo $gpuInfo -PerfInfo $perfInfo -StressInfo $stressInfo -TempInfo $tempInfo -DiskInfo $diskInfo -VolInfo $volInfo -OsInfo $osInfo -DefInfo $defInfo -FinalStatus $finalStatus
+$clusterPlatformRows = @(
+    (New-ClusterRow "CPU" (Get-PropValue -Object $sysInfo -Names @("CPU") -Default "N/D")),
+    (New-ClusterRow "Motherboard" (Get-PropValue -Object $sysInfo -Names @("Motherboard","PlacaMadre") -Default "N/D")),
+    (New-ClusterRow "GPU" (Get-PropValue -Object $heroGpu -Names @("GPU") -Default "N/D")),
+    (New-ClusterRow "VRAM" (Get-PropValue -Object $heroGpu -Names @("VRAM_GB") -Default "N/D")),
+    (New-ClusterRow "SO" (Get-PropValue -Object $osInfo -Names @("SO") -Default "N/D")),
+    (New-ClusterRow "Build" (Get-PropValue -Object $osInfo -Names @("Build","Version") -Default "N/D"))
+)
+$clusterPerfRows = @(
+    (New-ClusterRow "RAM usada" "$(Get-PropValue -Object $perfInfo -Names @('RAM_Usada_GB') -Default 'N/D') GB"),
+    (New-ClusterRow "RAM total" "$(Get-PropValue -Object $sysInfo -Names @('RAM_Total_GB') -Default 'N/D') GB"),
+    (New-ClusterRow "Uso RAM" (if($ramPctDisplay -ne "N/D"){$ramPctDisplay}else{"N/D"})),
+    (New-ClusterRow "CPU actual" $cpuPctDisplay),
+    (New-ClusterRow "Eventos criticos" "$critCount"),
+    (New-ClusterRow "BSOD recientes" "$bsodCount")
+)
+$clusterDiskRows = @(
+    (New-ClusterRow "Disco principal" (Get-PropValue -Object $heroMainDisk -Names @("Modelo","Model","FriendlyName") -Default "N/D")),
+    (New-ClusterRow "Estado" (Get-PropValue -Object $heroMainDisk -Names @("Estado") -Default "N/D")),
+    (New-ClusterRow "Volumen" (Get-PropValue -Object $topVol -Names @("Volumen","Unidad") -Default "N/D")),
+    (New-ClusterRow "Libre" "$(Get-PropValue -Object $topVol -Names @('Libre_GB') -Default 'N/D') GB"),
+    (New-ClusterRow "Uso" $diskPctDisplay),
+    (New-ClusterRow "TRIM" (Get-PropValue -Object $trimInfo -Names @("TRIM","Estado") -Default "N/D"))
+)
+$clusterSecurityRows = @(
+    (New-ClusterRow "Antivirus" (Get-PropValue -Object $defInfo -Names @("Producto","Antivirus","Nombre") -Default "Windows Defender")),
+    (New-ClusterRow "Defensa" $(if($defInfo.Activo -eq $true){"Activa"}else{"Inactiva"})),
+    (New-ClusterRow "Integridad" (Get-PropValue -Object $integ -Names @("Estado","Resumen","Resultado") -Default "N/D")),
+    (New-ClusterRow "WHEA" "$( @($wheaInfo | Where-Object { $_.Fecha -and $_.Fecha -notmatch '^Sin' }).Count )"),
+    (New-ClusterRow "Huella PCLAF" (Get-PropValue -Object $comparison -Names @("Resumen","FP_Coincide","Marca_Previa") -Default "N/D")),
+    (New-ClusterRow "Proxima revision" $nextDate)
+)
+$topProcessesTable = To-HtmlTable ($topProc | Select-Object -First 5)
+$eventsRows = @(
+    (New-ClusterRow "Criticos 30 dias" "$critCount"),
+    (New-ClusterRow "BSOD" "$bsodCount"),
+    (New-ClusterRow "Reinicios inesperados" "$( @($shutdownInfo | Where-Object { $_.Fecha -and $_.Fecha -notmatch '^Sin' }).Count )"),
+    (New-ClusterRow "Dispositivos con problemas" "$( @($problemDevices).Count )")
+)
+$clustersHtml = @(
+    (Get-ClusterHtml -Title "Plataforma y video" -Subtitle "Informacion estructural del equipo, video y contexto del stress." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterPlatformRows) + (To-HtmlTable ($gpuInfo | Select-Object -First 1)))),
+    (Get-ClusterHtml -Title "Memoria y rendimiento" -Subtitle "Uso real, procesos pesados y lectura de memoria sin repetir paneles." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterPerfRows) + $topProcessesTable)),
+    (Get-ClusterHtml -Title "Almacenamiento y mantenimiento" -Subtitle "Discos, espacio y mantenimiento recomendado." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterDiskRows) + (To-HtmlTable ($diskInfo | Select-Object Modelo,Estado,Salud,SMART -First 5)))),
+    (Get-ClusterHtml -Title "Seguridad, eventos y trazabilidad" -Subtitle "Estado de seguridad y hechos recientes que justifican el estado general." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterSecurityRows) + (To-HtmlTable $eventsRows)))
 ) -join ""
-
-$heroMeterHtml = if ($Modo -eq "tecnico") { $techMeterHtml } else { $clientMeterHtml }
-$thermalOverviewHtml = Get-ThermalOverviewHtml -TempInfo $tempInfo -StressInfo $stressInfo -SysInfo $sysInfo -GpuInfo $gpuInfo
 
 # Logo base64 (favicon/logo real de PCLAF)
 $LogoB64 = "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"
@@ -3210,10 +3932,9 @@ $CSS
 <body>
 <div class="wrap">
 
-<!-- HERO -->
 <div class="hero">
   <div class="hero-grid">
-    <div class="hero-main">
+    <div>
       <div class="brand">
         <div class="brand-logo">$BrandMark</div>
         <div>
@@ -3221,270 +3942,94 @@ $CSS
           <div class="brand-sub">Servicio tecnico • Floresta, CABA • pclaf.com.ar</div>
         </div>
       </div>
-      <div class="page-kicker">Reporte $($Modo.ToUpper()) • Script v$ScriptVersion</div>
-      <h1>Diagnostico completo del equipo $($env:COMPUTERNAME)</h1>
-      <div class="sub">
+      <div class="kicker">Reporte $($Modo.ToUpper()) • $($env:COMPUTERNAME) • Script v$ScriptVersion</div>
+      <h1>Diagnostico agrupado por pieza del equipo $($env:COMPUTERNAME)</h1>
+      <div class="meta">
         <span>$(Get-Date -Format "dd/MM/yyyy HH:mm")</span>
         <span>Tecnico: $Tecnico</span>
         <span>Modo: $($Modo.ToUpper())</span>
       </div>
-      <div class="hero-summary">
-        <div class="summary-chip">
-          <div class="k">Sistema operativo</div>
-          <div class="v">$(HtmlEnc $osInfo.SO)</div>
-        </div>
-        <div class="summary-chip">
-          <div class="k">Memoria instalada</div>
-          <div class="v">$($sysInfo.RAM_Total_GB) GB</div>
-        </div>
-        <div class="summary-chip">
-          <div class="k">Revision sugerida</div>
-          <div class="v">$nextDate</div>
-        </div>
+      <div class="summary-strip">
+        <div class="summary-box"><div class="summary-k">Sistema operativo</div><div class="summary-v">$(HtmlEnc $osInfo.SO)</div></div>
+        <div class="summary-box"><div class="summary-k">Memoria instalada</div><div class="summary-v">$($sysInfo.RAM_Total_GB) GB</div></div>
+        <div class="summary-box"><div class="summary-k">Revision sugerida</div><div class="summary-v">$nextDate</div></div>
       </div>
     </div>
     <div class="hero-side">
       <div class="status-card">
-        <div class="status-top">
-          <div class="status-label">Estado general</div>
-          <div class="banner $estadoCls">$($finalStatus.EstadoGeneral)</div>
+        <div class="status-head">
+          <div class="status-k">Estado general</div>
+          $(Get-PillHtml -Text $finalStatus.EstadoGeneral -Tone $statusTone)
         </div>
-        <div class="status-reason">$(HtmlEnc $finalStatus.Motivos)</div>
-        <div class="traffic">
-          $tlHw $tlDisk $tlRam $tlTemp $tlDef $tlSpace
+        <div class="status-copy">$(HtmlEnc $statusCopy)</div>
+        <div class="lights">
+          $lightsHtml
         </div>
       </div>
-      <div class="status-card">
-        <div class="section-accent">
-          <div>
-            <div class="sa-kicker">Panel visual</div>
-            <div class="sa-title">Indicadores PCLAF</div>
-          </div>
-          <div class="sa-line"></div>
+      <div class="mini-board">
+        <div class="mini-head">
+          <div class="mini-title">Panel rapido</div>
+          $(Get-PillHtml -Text "Stress 5 min" -Tone $(if($Modo -eq "tecnico"){"bad"}else{"warn"}))
         </div>
-        <div class="meter-grid">
-          $heroMeterHtml
+        <div class="mini-grid">
+          $heroQuickHtml
         </div>
       </div>
     </div>
   </div>
-  <div class="kgrid">
-    <div class="kpi"><div class="kpi-l">Sistema operativo</div><div class="kpi-v" style="font-size:13px">$(HtmlEnc $osInfo.SO)</div></div>
-    <div class="kpi"><div class="kpi-l">Procesador</div><div class="kpi-v" style="font-size:12px">$(HtmlEnc $sysInfo.CPU)</div></div>
-    <div class="kpi"><div class="kpi-l">Memoria RAM</div><div class="kpi-v">$($sysInfo.RAM_Total_GB) GB</div></div>
-    <div class="kpi"><div class="kpi-l">Uso RAM actual</div><div class="kpi-v" style="font-size:17px">$ramPctDisplay$ramBar</div></div>
-    <div class="kpi"><div class="kpi-l">Disco principal</div><div class="kpi-v" style="font-size:12px">$(HtmlEnc (($diskInfo|Select-Object -First 1).Modelo))</div></div>
-    <div class="kpi"><div class="kpi-l">Pico termico 5 min</div><div class="kpi-v" style="font-size:14px">CPU $(if($stressInfo.CPU_Pico_C -ne "N/D"){"$($stressInfo.CPU_Pico_C)°C"}else{"N/D"}) / GPU $(if($stressInfo.GPU_Pico_C -ne "N/D"){"$($stressInfo.GPU_Pico_C)°C"}else{"N/D"})</div></div>
-  </div>
 </div>
 
-$(if($thermalOverviewHtml){$thermalOverviewHtml})
-
+$hardwareDashboardHtml
 "@
 
-# -- CLIENTE SECTION ----------------------------------------------------------
+# -- RESUMEN / CLIENTE --------------------------------------------------------
+$html += @"
+<section class='section'>
+  <div class='section-head'>
+    <div class='section-title'>Resumen ejecutivo</div>
+    $(Get-PillHtml -Text "Lectura PCLAF" -Tone $statusTone)
+  </div>
+  <div class='section-sub'>Conclusion rapida del servicio, pensada para leer el estado del equipo sin meterse en tablas tecnicas largas.</div>
+  $(Get-ClientSummary -Status $finalStatus -HwAge $hwAge -Vols $volInfo -Disks $diskInfo -Perf $perfInfo -Temps $tempInfo -Rec $recs -NextDate $nextDate -Issues $clientIssues -Bsod $bsodInfo -Shutdowns $shutdownInfo)
+</section>
+"@
+
 if ($ServicioRealizado -or $PrecioServicio) {
     $html += @"
-<section>
-<h2>[S] Trabajo realizado hoy</h2>
-<div class="work-box">
-  <div class="work-title">Servicio realizado por PCLAF</div>
-  <div class="work-body">
-    $(if($ServicioRealizado){"<p><strong>Descripcion:</strong> $(HtmlEnc $ServicioRealizado)</p>"})
-    $(if($PrecioServicio){"<p><strong>Precio:</strong> $PrecioServicio</p>"})
-    <p><strong>Fecha:</strong> $(Get-Date -Format "dd/MM/yyyy")</p>
-    <p><strong>Tecnico:</strong> $Tecnico</p>
+<section class='section'>
+  <div class='section-head'>
+    <div class='section-title'>Trabajo realizado</div>
+    $(Get-PillHtml -Text "Servicio" -Tone "ok")
   </div>
-</div>
+  <div class='section-sub'>Registro del trabajo hecho por PCLAF en esta visita.</div>
+  <div class='maintenance'>
+    <div class='maintenance-date'>$(Get-Date -Format "dd/MM")</div>
+    <div class='maintenance-copy'>
+      $(if($ServicioRealizado){"<strong>Descripcion:</strong> $(HtmlEnc $ServicioRealizado)<br>"})
+      $(if($PrecioServicio){"<strong>Precio:</strong> $PrecioServicio<br>"})
+      <strong>Tecnico:</strong> $(HtmlEnc $Tecnico)
+    </div>
+  </div>
 </section>
 "@
 }
 
-$html += @"
-<section>
-<h2>&#128203; Resumen del estado del equipo</h2>
-$(Get-ClientSummary -Status $finalStatus -HwAge $hwAge -Vols $volInfo -Disks $diskInfo -Perf $perfInfo -Temps $tempInfo -Rec $recs -NextDate $nextDate -Issues $clientIssues -Bsod $bsodInfo -Shutdowns $shutdownInfo)
-</section>
-
-<section>
-<h2>&#128187; Agrupacion de hardware</h2>
-<div class="section-sub">Vista organizada por piezas principales del equipo, siguiendo el enfoque de diagnostico de PCLAF.</div>
-<div class="group-grid">
-  <div class="group-card">
-    <div class="group-kicker">Procesamiento</div>
-    <div class="group-title">CPU y plataforma</div>
-    <div class="group-text"><strong>CPU:</strong> $(HtmlEnc $sysInfo.CPU)<br><strong>Motherboard:</strong> $(HtmlEnc $sysInfo.Motherboard)<br><strong>Evaluacion:</strong> $(HtmlEnc $hwAge.CPU_Msg)</div>
-  </div>
-  <div class="group-card">
-    <div class="group-kicker">Memoria</div>
-    <div class="group-title">RAM instalada</div>
-    <div class="group-text"><strong>Total:</strong> $($sysInfo.RAM_Total_GB) GB<br><strong>Slots:</strong> $($sysInfo.Slots_RAM)<br><strong>Evaluacion:</strong> $(HtmlEnc $hwAge.RAM_Msg)</div>
-  </div>
-  <div class="group-card">
-    <div class="group-kicker">Graficos</div>
-    <div class="group-title">GPU y video</div>
-    <div class="group-text"><strong>GPU:</strong> $(HtmlEnc (($gpuInfo|Select-Object -First 1).GPU))<br><strong>VRAM:</strong> $((($gpuInfo|Select-Object -First 1).VRAM_GB)) GB<br><strong>Evaluacion:</strong> $(HtmlEnc $hwAge.GPU_Msg)</div>
-  </div>
-  <div class="group-card">
-    <div class="group-kicker">Almacenamiento</div>
-    <div class="group-title">Discos y volumenes</div>
-    <div class="group-text"><strong>Principal:</strong> $(HtmlEnc (($diskInfo|Select-Object -First 1).Modelo))<br><strong>Estado:</strong> $(HtmlEnc (($diskInfo|Select-Object -First 1).Estado))<br><strong>Evaluacion:</strong> $(HtmlEnc $hwAge.Disco_Msg)</div>
-  </div>
-</div>
-<div class="cards">
-  <div class="card $(if($hwAge.CPU_Estado -in @("VIEJO")){"bad"}elseif($hwAge.CPU_Estado -eq "USABLE"){"warn"}else{"ok"})">
-    <div class="card-icon">&#128306;</div>
-    <div class="card-title">Procesador (CPU)</div>
-    <div class="card-body">$(HtmlEnc $sysInfo.CPU)<br><strong>$(if($hwAge.CPU_Estado){HtmlEnc $hwAge.CPU_Estado}else{"N/D"})</strong> - $(if($hwAge.CPU_Msg){HtmlEnc $hwAge.CPU_Msg}else{"Sin datos"})<br>Nucleos: $($sysInfo.Cores) - Hilos: $($sysInfo.Hilos)</div>
-  </div>
-  <div class="card $(if($hwAge.RAM_Estado -eq "INSUFICIENTE"){"bad"}elseif($hwAge.RAM_Estado -eq "JUSTA"){"warn"}else{"ok"})">
-    <div class="card-icon">&#129513;</div>
-    <div class="card-title">Memoria RAM</div>
-    <div class="card-body">$(HtmlEnc $sysInfo.RAM_Total_GB) GB instalados<br><strong>$(if($hwAge.RAM_Estado){HtmlEnc $hwAge.RAM_Estado}else{"N/D"})</strong> - $(if($hwAge.RAM_Msg){HtmlEnc $hwAge.RAM_Msg}else{"Sin datos"})</div>
-  </div>
-  <div class="card $(if($hwAge.Disco_Estado -match "LENTO"){"warn"}elseif($hwAge.Disco_Estado -eq "SIN DATOS"){"info"}else{"ok"})">
-    <div class="card-icon">&#128190;</div>
-    <div class="card-title">Almacenamiento</div>
-    <div class="card-body"><strong>$(if($hwAge.Disco_Estado){HtmlEnc $hwAge.Disco_Estado}else{"N/D"})</strong> - $(if($hwAge.Disco_Msg){HtmlEnc $hwAge.Disco_Msg}else{"Sin datos"})</div>
-  </div>
-  <div class="card $(if($hwAge.GPU_Estado -eq "VIEJA"){"warn"}else{"ok"})">
-    <div class="card-icon">&#127918;</div>
-    <div class="card-title">Placa de video (GPU)</div>
-    <div class="card-body">$(HtmlEnc (($gpuInfo|Select-Object -First 1).GPU))<br><strong>$(if($hwAge.GPU_Estado){HtmlEnc $hwAge.GPU_Estado}else{"N/D"})</strong> - $(if($hwAge.GPU_Msg){HtmlEnc $hwAge.GPU_Msg}else{"Sin datos"})</div>
-  </div>
-</div>
-</section>
-
-<section>
-<h2>&#128680; Salud general y acciones</h2>
-<div class="section-sub">Problemas encontrados, estabilidad reciente y recomendaciones para el seguimiento del equipo.</div>
-<div class="stack">
-$(To-HtmlTable $clientIssues)
-$(To-HtmlTable $bsodInfo)
-$(To-HtmlTable $shutdownInfo)
-$(To-HtmlTable $recs)
-<div class="next-box">
-  <div class="next-date">$nextDate</div>
-  <div class="next-msg">
-    <strong>Mantenimiento preventivo recomendado</strong><br>
-    El mantenimiento regular prolonga la vida util del equipo y previene fallas.<br>
-    Contactanos cuando sea el momento: <strong>11 4175-8129</strong>
-  </div>
-</div>
-</div>
-</section>
-
-<section>
-<h2>&#128190; Almacenamiento y temperaturas</h2>
-<div class="section-sub">Discos, espacio y detalle tecnico del stress termico realizado antes de cerrar el reporte.</div>
-<div class="stack">
-$(To-HtmlTable $diskInfo)
-$(To-HtmlTable $volInfo)
-$(To-HtmlTable @($stressInfo))
-$(To-HtmlTable $tempInfo)
-</div>
-</section>
-
-"@
-
-# -- TECNICO-ONLY SECTIONS ----------------------------------------------------
 if ($Modo -eq "tecnico") {
     $html += @"
-
-<section>
-<div class="section-accent">
-  <div>
-    <div class="sa-kicker">Panel tecnico</div>
-    <div class="sa-title">Tacometros y carga del sistema</div>
+<section class='section'>
+  <div class='section-head'>
+    <div class='section-title'>Clusters tecnicos</div>
+    $(Get-PillHtml -Text "Agrupado" -Tone "warn")
   </div>
-  <div class="sa-line"></div>
-</div>
-<div class="meter-grid">
-$techMeterHtml
-</div>
+  <div class='section-sub'>El resto del reporte tambien queda separado por dominios, pero sin repetir otra vez CPU, GPU, RAM y disco como tablas sueltas por todos lados.</div>
+  <div class='cluster-grid'>
+    $clustersHtml
+  </div>
+  <div class='maintenance'>
+    <div class='maintenance-date'>$nextDate</div>
+    <div class='maintenance-copy'><strong>Mantenimiento preventivo recomendado.</strong><br>La observacion principal de este reporte es $(HtmlEnc $finalStatus.EstadoGeneral.ToLower()) y este tablero ya deja resumido por pieza lo que conviene revisar primero en taller.</div>
+  </div>
 </section>
-
-<section>
-<h2>&#128297; Plataforma base</h2>
-<div class="section-sub">Sistema operativo, hardware base, GPU, memoria y contexto general de la plataforma.</div>
-<div class="stack">
-$(To-HtmlTable @($hwAge))
-$(To-HtmlTable @($osInfo))
-$(To-HtmlTable @($sysInfo))
-$(To-HtmlTable $gpuInfo)
-$(To-HtmlTable $ramInfo)
-$(To-HtmlTable @($activInfo))
-$(To-HtmlTable @($powerProf))
-</div>
-</section>
-
-<section>
-<h2>&#128274; Seguridad y mantenimiento</h2>
-<div class="section-sub">Seguridad basica del sistema, antivirus, bateria, actualizaciones y tareas de integridad.</div>
-<div class="stack">
-$(To-HtmlTable @($secInfo))
-$(To-HtmlTable @($defInfo))
-$(To-HtmlTable $batInfo)
-$(To-HtmlTable @($wuInfo))
-$(To-HtmlTable @($trimInfo))
-$(To-HtmlTable @($integ))
-</div>
-</section>
-
-<section>
-<h2>&#128678; Rendimiento y software activo</h2>
-<div class="section-sub">Carga actual del sistema, procesos pesados, inicio automatico y componentes de software que impactan el rendimiento.</div>
-<div class="stack">
-$(To-HtmlTable @($perfInfo))
-$(To-HtmlTable $bootInfo)
-$(To-HtmlTable $topProc)
-$(To-HtmlTable $startApps)
-$(To-HtmlTable $nonMsSvcs)
-$(To-HtmlTable $schedTasks)
-$(To-HtmlTable $driversInfo)
-$(To-HtmlTable $instApps)
-</div>
-</section>
-
-<section>
-<h2>&#127760; Red y conectividad</h2>
-<div class="section-sub">Interfaces de red y puertos abiertos detectados en el momento del diagnostico.</div>
-<div class="stack">
-$(To-HtmlTable $netInfo)
-$(To-HtmlTable $openPorts)
-</div>
-</section>
-
-<section>
-<h2>&#128680; Estabilidad y eventos</h2>
-<div class="section-sub">Eventos criticos, BSOD, reinicios, errores WHEA, memoria y dispositivos con problemas.</div>
-<div class="stack">
-$(To-HtmlTable $memErrs)
-$(To-HtmlTable $critEvts)
-$(To-HtmlTable $bsodInfo)
-$(To-HtmlTable $shutdownInfo)
-$(To-HtmlTable $wheaInfo)
-$(To-HtmlTable $diskEvtInfo)
-$(To-HtmlTable $problemDevices)
-</div>
-</section>
-
-<section>
-<h2>&#128270; Huella y trazabilidad PCLAF</h2>
-<div class="section-sub">Comparativa contra registros previos, huella unica del equipo y marca local de mantenimiento.</div>
-<div class="stack">
-$(To-HtmlTable @($comparison))
-$(To-HtmlTable @($fingerprint))
-$(To-HtmlTable @([PSCustomObject]@{
-  Registro_WIndows = if($markOk){"OK - HKCU:\SOFTWARE\PCLAF\Diagnostics"}else{"No se pudo escribir"}
-  JSON_Local = if($writeOk){"OK - C:\ProgramData\PCLAF\last.json"}else{"No se pudo escribir"}
-  Tecnico = $Tecnico
-  SO_Instalado_PCLAF = if($SistemaInstaladoPorPCLAF){"SI"}else{"NO"}
-  Prox_Revision = $nextDate
-}))
-</div>
-</section>
-
 "@
 }
 
