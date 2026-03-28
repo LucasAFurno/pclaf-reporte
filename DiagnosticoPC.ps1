@@ -2512,9 +2512,9 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
 }
 .thermal-gauge-body{
   display:grid;
-  grid-template-columns:180px 1fr;
-  gap:18px;
-  align-items:center;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  align-items:stretch;
 }
 .dial{
   --angle: 0deg;
@@ -2546,12 +2546,19 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   z-index:1;
   text-align:center;
 }
-.dial-temp{
+.dial-value{
   font-size:32px;
   font-weight:900;
   color:#fff;
   line-height:1;
 }
+.dial.small{
+  width:138px;
+  height:138px;
+  margin:0 auto;
+}
+.dial.small::before{inset:14px}
+.dial.small .dial-value{font-size:28px}
 .dial-unit{
   margin-top:6px;
   font-size:11px;
@@ -2560,35 +2567,30 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   letter-spacing:.08em;
   text-transform:uppercase;
 }
-.thermal-meta{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:12px;
-}
-.thermal-meta-card{
+.thermal-dial-card{
   border:1px solid rgba(255,255,255,.07);
-  border-radius:16px;
-  padding:12px 14px;
+  border-radius:18px;
+  padding:14px;
   background:rgba(0,0,0,.18);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
 }
-.thermal-meta-label{
+.thermal-dial-label{
+  margin-bottom:10px;
   font-size:10px;
   color:var(--text3);
   font-family:var(--mono);
   letter-spacing:.08em;
   text-transform:uppercase;
 }
-.thermal-meta-value{
-  margin-top:8px;
-  font-size:24px;
-  font-weight:900;
-  color:#fff;
-  line-height:1;
-}
-.thermal-meta-note{
-  margin-top:6px;
+.thermal-dial-note{
+  margin-top:10px;
   color:var(--text3);
   font-size:11px;
+  text-align:center;
+  line-height:1.45;
 }
 .thermal-legend{
   display:flex;
@@ -2639,7 +2641,6 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   .thermal-head{align-items:flex-start;flex-direction:column}
   .thermal-gauge-body{grid-template-columns:1fr}
   .dial{margin:0 auto}
-  .thermal-meta{grid-template-columns:1fr}
   .thermal-legend{flex-direction:column}
 }
 @media print{
@@ -2845,8 +2846,12 @@ function Get-ThermalOverviewHtml {
         }
 
         $loadNum = 0
+        $loadPct = 0
+        $loadAngle = 22
         if ([double]::TryParse([string]$row.CargaMax, [ref]$loadNum)) {
-            $loadVal = ("{0}%" -f [math]::Round($loadNum, 0))
+            $loadPct = [math]::Max(0, [math]::Min(100, [math]::Round($loadNum, 0)))
+            $loadVal = ("{0}%" -f $loadPct)
+            $loadAngle = [math]::Round(($loadPct / 100) * 360, 0)
         }
 
         $rowsHtml += @"
@@ -2860,28 +2865,30 @@ function Get-ThermalOverviewHtml {
         <div>$stateTag</div>
       </div>
       <div class='thermal-gauge-body'>
-        <div class='dial $tone' style='--angle:${tempAngle}deg'>
-          <div class='dial-inner'>
-            <div class='dial-temp'>$(HtmlEnc $tempVal)</div>
-            <div class='dial-unit'>temperatura</div>
+        <div class='thermal-dial-card'>
+          <div class='thermal-dial-label'>Temperatura maxima</div>
+          <div class='dial $tone' style='--angle:${tempAngle}deg'>
+            <div class='dial-inner'>
+              <div class='dial-value'>$(HtmlEnc $tempVal)</div>
+              <div class='dial-unit'>0 a 100 °c</div>
+            </div>
           </div>
+          <div class='thermal-dial-note'>El color cambia segun criticidad termica real.</div>
         </div>
-        <div class='thermal-meta'>
-          <div class='thermal-meta-card'>
-            <div class='thermal-meta-label'>Carga maxima</div>
-            <div class='thermal-meta-value'>$(HtmlEnc $loadVal)</div>
-            <div class='thermal-meta-note'>Carga observada durante el stress</div>
+        <div class='thermal-dial-card'>
+          <div class='thermal-dial-label'>Carga maxima</div>
+          <div class='dial small $(if($loadPct -ge 90){"bad"}elseif($loadPct -ge 70){"warn"}elseif($loadPct -gt 0){"ok"}else{"info"})' style='--angle:${loadAngle}deg'>
+            <div class='dial-inner'>
+              <div class='dial-value'>$(HtmlEnc $loadVal)</div>
+              <div class='dial-unit'>0 a 100 %</div>
+            </div>
           </div>
-          <div class='thermal-meta-card'>
-            <div class='thermal-meta-label'>Estado</div>
-            <div class='thermal-meta-value'>$(HtmlEnc $stateText)</div>
-            <div class='thermal-meta-note'>Clasificacion termica de la pieza</div>
-          </div>
+          <div class='thermal-dial-note'>Carga observada durante el stress de 5 minutos.</div>
         </div>
       </div>
       <div class='thermal-legend'>
-        <div class='thermal-legend-text'>Tacometro calibrado de 0°C a 100°C</div>
-        <div class='thermal-legend-scale'>0°C • 60°C • 80°C • 100°C</div>
+        <div class='thermal-legend-text'>Estado: $(HtmlEnc $stateText)</div>
+        <div class='thermal-legend-scale'>Temperatura 0° • 60° • 80° • 100°</div>
       </div>
     </div>
 "@
