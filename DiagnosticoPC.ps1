@@ -772,7 +772,10 @@ while(-not (Test-Path $StopFile)){
 }
 
 function Start-PclafGpuStress {
-    param([string]$StopFile)
+    param(
+        [string]$StopFile,
+        [int]$InstanceCount = 1
+    )
 
     $tool = Ensure-StressTheGpu
     if (-not $tool.Ok -or -not (Test-Path $tool.ExePath)) {
@@ -780,8 +783,17 @@ function Start-PclafGpuStress {
     }
     Prepare-StressTheGpuConfig -ExePath $tool.ExePath
     try {
-        $p = Start-Process -FilePath $tool.ExePath -WorkingDirectory (Split-Path $tool.ExePath) -PassThru
-        return [PSCustomObject]@{ Processes=@($p); Mode="StressTheGPU"; Note="GPU stress activo y auto-configurado" }
+        $procs = @()
+        $count = [math]::Max(1, $InstanceCount)
+        foreach ($i in 1..$count) {
+            $p = Start-Process -FilePath $tool.ExePath -WorkingDirectory (Split-Path $tool.ExePath) -PassThru
+            if ($p) { $procs += $p }
+        }
+        return [PSCustomObject]@{
+            Processes = @($procs)
+            Mode      = "StressTheGPU x$count"
+            Note      = if ($count -gt 1) { "GPU stress escalado con $count instancias" } else { "GPU stress activo y auto-configurado" }
+        }
     } catch {
         return [PSCustomObject]@{ Processes=@(); Mode="Sin GPU"; Note=$_.Exception.Message }
     }
@@ -818,11 +830,13 @@ function Invoke-ThermalStressAssessment {
     $gpuNote = "No iniciado"
     $samples = @()
     $startedAt = Get-Date
+    $gpuInstanceCount = 1
+    $gpuEscalated = $false
 
     try {
         Write-UploadLog -Stage "STRESS" -Message ("Iniciando stress fijo de {0} segundos" -f $DurationSeconds)
         $cpuWorkers = Start-PclafCpuStress -StopFile $stopFile
-        $gpuControl = Start-PclafGpuStress -StopFile $stopFile
+        $gpuControl = Start-PclafGpuStress -StopFile $stopFile -InstanceCount $gpuInstanceCount
         $gpuWorkers = @($gpuControl.Processes)
         $gpuMode = $gpuControl.Mode
         $gpuNote = $gpuControl.Note
@@ -836,6 +850,30 @@ function Invoke-ThermalStressAssessment {
                 CPU_Load_Pct = $snap.CpuLoad
                 GPU_Temp_C = $snap.GpuTemp
                 GPU_Load_Pct = $snap.GpuLoad
+            }
+
+            if (-not $gpuEscalated -and $elapsed -ge 25) {
+                $recentGpuSamples = @($samples | Where-Object { $null -ne $_.GPU_Load_Pct } | Select-Object -ExpandProperty GPU_Load_Pct)
+                $recentGpuMax = if ($recentGpuSamples.Count -gt 0) { ($recentGpuSamples | Measure-Object -Maximum).Maximum } else { $null }
+                if ($recentGpuMax -ne $null -and [double]$recentGpuMax -lt 75) {
+                    Write-UploadLog -Stage "GPU" -Message ("Stress GPU bajo ({0}%). Escalando a 2 instancias." -f [math]::Round([double]$recentGpuMax,1))
+                    foreach ($proc in @($gpuWorkers)) {
+                        try {
+                            if ($proc -and -not $proc.HasExited) {
+                                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                            }
+                        } catch {}
+                    }
+                    Start-Sleep -Seconds 1
+                    $gpuInstanceCount = 2
+                    $gpuControl = Start-PclafGpuStress -StopFile $stopFile -InstanceCount $gpuInstanceCount
+                    $gpuWorkers = @($gpuControl.Processes)
+                    $gpuMode = $gpuControl.Mode
+                    $gpuNote = $gpuControl.Note
+                    $gpuEscalated = $true
+                } else {
+                    $gpuEscalated = $true
+                }
             }
             Start-Sleep -Seconds 2
         }
@@ -888,7 +926,7 @@ function Invoke-ThermalStressAssessment {
         CPU_CargaMax_Pct = if ($cpuLoadPeak -ne $null) { [math]::Round([double]$cpuLoadPeak, 1) } else { "N/D" }
         GPU_CargaMax_Pct = if ($gpuLoadPeak -ne $null) { [math]::Round([double]$gpuLoadPeak, 1) } else { "N/D" }
         GPU_Stress       = $gpuMode
-        Nota             = $gpuNote
+        Nota             = if ($gpuLoadPeak -ne $null -and [double]$gpuLoadPeak -lt 80) { "$gpuNote. Carga GPU limitada en este equipo/controlador ($([math]::Round([double]$gpuLoadPeak,1))%)." } else { $gpuNote }
     }
 
     Write-UploadLog -Stage "STRESS" -Message ("Stress 5m finalizado. CPU={0}C GPU={1}C" -f $summary.CPU_Pico_C, $summary.GPU_Pico_C)
