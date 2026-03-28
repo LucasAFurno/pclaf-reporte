@@ -133,7 +133,20 @@ function Sanitize-UploadText {
     $value = $value -replace [char]0, ''
     $value = $value -replace '\uFEFF', ''
     $value = $value -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', ''
-    return $value
+
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($ch in $value.ToCharArray()) {
+        $code = [int][char]$ch
+        if ($code -in 9, 10, 13) {
+            [void]$sb.Append($ch)
+            continue
+        }
+        if ($code -lt 32) { continue }
+        if ([char]::IsSurrogate($ch)) { continue }
+        if ($code -in 65534, 65535) { continue }
+        [void]$sb.Append($ch)
+    }
+    return $sb.ToString()
 }
 
 function Write-UploadLog {
