@@ -514,6 +514,41 @@ function Ensure-LibreHardwareMonitor {
     return [PSCustomObject]@{ Ok=$false; BaseDir=$baseDir; DllPath=$dllPath; Source="unavailable" }
 }
 
+function Ensure-StressTheGpu {
+    if (-not [Environment]::Is64BitOperatingSystem) {
+        return [PSCustomObject]@{ Ok=$false; ExePath=$null; Source="unsupported"; Note="StressTheGPU x64 requiere Windows de 64 bits" }
+    }
+
+    $baseDir = Join-Path ${env:ProgramData} "PCLAF\tools\StressTheGPU"
+    if ([string]::IsNullOrWhiteSpace($env:ProgramData)) {
+        $baseDir = Join-Path $env:TEMP "PCLAF\tools\StressTheGPU"
+    }
+
+    $exePath = Join-Path $baseDir "StressTheGPU_x64.exe"
+    if (Test-Path $exePath) {
+        return [PSCustomObject]@{ Ok=$true; ExePath=$exePath; Source="cache"; Note="StressTheGPU listo" }
+    }
+
+    try { New-Item -ItemType Directory -Path $baseDir -Force | Out-Null } catch {}
+    $zipPath = Join-Path $env:TEMP "StressTheGPU_x64.zip"
+    $extractDir = Join-Path $env:TEMP "StressTheGPU_extract"
+    $zipUrl = "https://softwareok.com/Download/StressTheGPU_x64.zip"
+
+    try {
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+        if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue }
+        Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+        Copy-Item -Path (Join-Path $extractDir '*') -Destination $baseDir -Recurse -Force
+        if (Test-Path $exePath) {
+            return [PSCustomObject]@{ Ok=$true; ExePath=$exePath; Source="download"; Note="StressTheGPU descargado" }
+        }
+    } catch {
+        Write-UploadLog -Stage "GPU" -Message ("No se pudo preparar StressTheGPU: {0}" -f $_.Exception.Message)
+    }
+
+    return [PSCustomObject]@{ Ok=$false; ExePath=$exePath; Source="unavailable"; Note="No se pudo descargar StressTheGPU" }
+}
+
 function New-LibreHardwareComputer {
     $prep = Ensure-LibreHardwareMonitor
     if (-not $prep.Ok) { return $null }
@@ -665,26 +700,13 @@ while(-not (Test-Path $StopFile)){
 function Start-PclafGpuStress {
     param([string]$StopFile)
 
-    $gpuScriptPath = Join-Path $env:TEMP "PCLAF_GPU_STRESS.ps1"
-    @'
-param([string]$StopFile)
-$ErrorActionPreference = "SilentlyContinue"
-while (-not (Test-Path $StopFile)) {
-  try {
-    & winsat d3d -totalobj 48 -objs 48 -totaltex 24 -texpobj 8 -batchcnt 1 -texw 10 -texh 10 -alushader -fullscreen -time 8 > $null 2>&1
-  } catch {}
-  if (Test-Path $StopFile) { break }
-  try {
-    & winsat d3d -totalobj 32 -objs 32 -totaltex 16 -texpobj 4 -texshader -fullscreen -time 8 > $null 2>&1
-  } catch {}
-}
-'@ | Set-Content -Path $gpuScriptPath -Encoding UTF8
-
+    $tool = Ensure-StressTheGpu
+    if (-not $tool.Ok -or -not (Test-Path $tool.ExePath)) {
+        return [PSCustomObject]@{ Processes=@(); Mode="Sin GPU"; Note=$tool.Note }
+    }
     try {
-        $p = Start-Process -FilePath "powershell.exe" -ArgumentList @(
-            "-NoProfile","-ExecutionPolicy","Bypass","-File",$gpuScriptPath,$StopFile
-        ) -WindowStyle Hidden -PassThru
-        return [PSCustomObject]@{ Processes=@($p); Mode="WinSAT D3D fullscreen"; Note="GPU stress activo con escena visible" }
+        $p = Start-Process -FilePath $tool.ExePath -WorkingDirectory (Split-Path $tool.ExePath) -PassThru
+        return [PSCustomObject]@{ Processes=@($p); Mode="StressTheGPU"; Note="GPU stress activo con herramienta dedicada" }
     } catch {
         return [PSCustomObject]@{ Processes=@(); Mode="Sin GPU"; Note=$_.Exception.Message }
     }
