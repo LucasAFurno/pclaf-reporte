@@ -2461,6 +2461,52 @@ tbody tr:hover td{background:rgba(204,0,0,.04)}
   line-height:1.85;
 }
 .next-msg strong{color:#fff}
+.group-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+  padding:0 18px 18px;
+}
+.group-card{
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:20px;
+  padding:18px;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.008)),
+    var(--black3);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+}
+.group-kicker{
+  color:var(--text3);
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.group-title{
+  margin-top:8px;
+  color:#fff;
+  font-size:18px;
+  font-weight:900;
+}
+.group-text{
+  margin-top:8px;
+  color:var(--text2);
+  font-size:13px;
+  line-height:1.8;
+}
+.group-text strong{color:#fff}
+.stack{
+  display:grid;
+  gap:18px;
+  padding:0 18px 18px;
+}
+.stack .tw,
+.stack .work-box,
+.stack .next-box,
+.stack .resumen-box{
+  margin:0;
+}
 .thermal-overview{
   margin:0 18px 18px;
   padding:16px 18px 18px;
@@ -2647,6 +2693,7 @@ tbody tr:hover td{background:rgba(204,0,0,.04)}
   .meter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .group-grid{grid-template-columns:1fr}
   .thermal-grid{grid-template-columns:1fr}
 }
 @media (max-width:720px){
@@ -2655,10 +2702,11 @@ tbody tr:hover td{background:rgba(204,0,0,.04)}
   .brand{align-items:flex-start}
   .brand-title{font-size:28px}
   .hero h1{font-size:24px;max-width:none}
-  .hero-summary,.traffic,.meter-grid,.kgrid,.cards{grid-template-columns:1fr}
+  .hero-summary,.traffic,.meter-grid,.kgrid,.cards,.group-grid{grid-template-columns:1fr}
   .next-box{flex-direction:column;align-items:flex-start}
   .tw{width:calc(100% - 20px);margin:0 10px 10px}
   .resumen-box,.work-box,.next-box,.thermal-overview{margin:10px}
+  .stack{padding:0 10px 10px}
   h2{padding:16px 14px 12px}
   .section-sub{padding:0 14px 12px}
   .thermal-head{align-items:flex-start;flex-direction:column}
@@ -3259,32 +3307,30 @@ $(Get-ClientSummary -Status $finalStatus -HwAge $hwAge -Vols $volInfo -Disks $di
 </section>
 
 <section>
-<h2>&#128680; Problemas detectados y que conviene corregir</h2>
-<div class="section-sub">Resumen claro de errores y condiciones que deberia revisar el tecnico</div>
-$(To-HtmlTable $clientIssues)
-</section>
-
-<section>
-<h2>&#128565; Fallos graves recientes del sistema</h2>
-<div class="section-sub">Pantallazos azules y reinicios inesperados detectados por Windows</div>
-$(To-HtmlTable $bsodInfo)
-$(To-HtmlTable $shutdownInfo)
-</section>
-
-<section>
-<h2>&#9989; Recomendaciones</h2>
-$(To-HtmlTable $recs)
-</section>
-
-<section>
-<h2>&#127777; Temperaturas del sistema</h2>
-<div class="section-sub">Picos termicos registrados durante un stress obligatorio de 5 minutos antes de cerrar el reporte</div>
-$(To-HtmlTable @($stressInfo))
-$(To-HtmlTable $tempInfo)
-</section>
-
-<section>
-<h2>&#128187; Hardware del equipo</h2>
+<h2>&#128187; Agrupacion de hardware</h2>
+<div class="section-sub">Vista organizada por piezas principales del equipo, siguiendo el enfoque de diagnostico de PCLAF.</div>
+<div class="group-grid">
+  <div class="group-card">
+    <div class="group-kicker">Procesamiento</div>
+    <div class="group-title">CPU y plataforma</div>
+    <div class="group-text"><strong>CPU:</strong> $(HtmlEnc $sysInfo.CPU)<br><strong>Motherboard:</strong> $(HtmlEnc $sysInfo.Motherboard)<br><strong>Evaluacion:</strong> $(HtmlEnc $hwAge.CPU_Msg)</div>
+  </div>
+  <div class="group-card">
+    <div class="group-kicker">Memoria</div>
+    <div class="group-title">RAM instalada</div>
+    <div class="group-text"><strong>Total:</strong> $($sysInfo.RAM_Total_GB) GB<br><strong>Slots:</strong> $($sysInfo.Slots_RAM)<br><strong>Evaluacion:</strong> $(HtmlEnc $hwAge.RAM_Msg)</div>
+  </div>
+  <div class="group-card">
+    <div class="group-kicker">Graficos</div>
+    <div class="group-title">GPU y video</div>
+    <div class="group-text"><strong>GPU:</strong> $(HtmlEnc (($gpuInfo|Select-Object -First 1).GPU))<br><strong>VRAM:</strong> $((($gpuInfo|Select-Object -First 1).VRAM_GB)) GB<br><strong>Evaluacion:</strong> $(HtmlEnc $hwAge.GPU_Msg)</div>
+  </div>
+  <div class="group-card">
+    <div class="group-kicker">Almacenamiento</div>
+    <div class="group-title">Discos y volumenes</div>
+    <div class="group-text"><strong>Principal:</strong> $(HtmlEnc (($diskInfo|Select-Object -First 1).Modelo))<br><strong>Estado:</strong> $(HtmlEnc (($diskInfo|Select-Object -First 1).Estado))<br><strong>Evaluacion:</strong> $(HtmlEnc $hwAge.Disco_Msg)</div>
+  </div>
+</div>
 <div class="cards">
   <div class="card $(if($hwAge.CPU_Estado -in @("VIEJO")){"bad"}elseif($hwAge.CPU_Estado -eq "USABLE"){"warn"}else{"ok"})">
     <div class="card-icon">&#128306;</div>
@@ -3310,17 +3356,13 @@ $(To-HtmlTable $tempInfo)
 </section>
 
 <section>
-<h2>&#128190; Estado de los discos</h2>
-$(To-HtmlTable $diskInfo)
-</section>
-
-<section>
-<h2>&#128193; Espacio en unidades</h2>
-$(To-HtmlTable $volInfo)
-</section>
-
-<section>
-<h2>&#128197; Proxima revision</h2>
+<h2>&#128680; Salud general y acciones</h2>
+<div class="section-sub">Problemas encontrados, estabilidad reciente y recomendaciones para el seguimiento del equipo.</div>
+<div class="stack">
+$(To-HtmlTable $clientIssues)
+$(To-HtmlTable $bsodInfo)
+$(To-HtmlTable $shutdownInfo)
+$(To-HtmlTable $recs)
 <div class="next-box">
   <div class="next-date">$nextDate</div>
   <div class="next-msg">
@@ -3328,6 +3370,18 @@ $(To-HtmlTable $volInfo)
     El mantenimiento regular prolonga la vida util del equipo y previene fallas.<br>
     Contactanos cuando sea el momento: <strong>11 4175-8129</strong>
   </div>
+</div>
+</div>
+</section>
+
+<section>
+<h2>&#128190; Almacenamiento y temperaturas</h2>
+<div class="section-sub">Discos, espacio y detalle tecnico del stress termico realizado antes de cerrar el reporte.</div>
+<div class="stack">
+$(To-HtmlTable $diskInfo)
+$(To-HtmlTable $volInfo)
+$(To-HtmlTable @($stressInfo))
+$(To-HtmlTable $tempInfo)
 </div>
 </section>
 
@@ -3351,169 +3405,76 @@ $techMeterHtml
 </section>
 
 <section>
-<h2>[S] Analisis de hardware - Detalle tecnico</h2>
+<h2>&#128297; Plataforma base</h2>
+<div class="section-sub">Sistema operativo, hardware base, GPU, memoria y contexto general de la plataforma.</div>
+<div class="stack">
 $(To-HtmlTable @($hwAge))
-</section>
-
-<section>
-<h2>&#128187; Sistema operativo</h2>
 $(To-HtmlTable @($osInfo))
-</section>
-
-<section>
-<h2>&#128297; Resumen de hardware</h2>
 $(To-HtmlTable @($sysInfo))
-</section>
-
-<section>
-<h2>&#128250; Placas de video</h2>
 $(To-HtmlTable $gpuInfo)
-</section>
-
-<section>
-<h2>&#129513; Modulos de RAM</h2>
 $(To-HtmlTable $ramInfo)
-</section>
-
-<section>
-<h2>&#128273; Activacion de Windows</h2>
 $(To-HtmlTable @($activInfo))
-</section>
-
-<section>
-<h2>[!] Perfil de energia</h2>
 $(To-HtmlTable @($powerProf))
+</div>
 </section>
 
 <section>
-<h2>&#128274; Seguridad basica</h2>
+<h2>&#128274; Seguridad y mantenimiento</h2>
+<div class="section-sub">Seguridad basica del sistema, antivirus, bateria, actualizaciones y tareas de integridad.</div>
+<div class="stack">
 $(To-HtmlTable @($secInfo))
-</section>
-
-<section>
-<h2>&#128737; Windows Defender</h2>
 $(To-HtmlTable @($defInfo))
-</section>
-
-<section>
-<h2>&#128267; Bateria</h2>
 $(To-HtmlTable $batInfo)
-</section>
-
-<section>
-<h2>&#127760; Red</h2>
-$(To-HtmlTable $netInfo)
-</section>
-
-<section>
-<h2>[WIN] Windows Update</h2>
 $(To-HtmlTable @($wuInfo))
-</section>
-
-<section>
-<h2>[S] TRIM de SSD</h2>
 $(To-HtmlTable @($trimInfo))
-</section>
-
-<section>
-<h2>[CPU] Integridad del sistema (SFC)</h2>
 $(To-HtmlTable @($integ))
+</div>
 </section>
 
 <section>
-<h2>&#128678; Rendimiento actual</h2>
+<h2>&#128678; Rendimiento y software activo</h2>
+<div class="section-sub">Carga actual del sistema, procesos pesados, inicio automatico y componentes de software que impactan el rendimiento.</div>
+<div class="stack">
 $(To-HtmlTable @($perfInfo))
-</section>
-
-<section>
-<h2>&#9203; Historial de arranques</h2>
 $(To-HtmlTable $bootInfo)
-</section>
-
-<section>
-<h2>&#128202; Top procesos</h2>
 $(To-HtmlTable $topProc)
-</section>
-
-<section>
-<h2>&#128225; Puertos abiertos</h2>
-$(To-HtmlTable $openPorts)
-</section>
-
-<section>
-<h2>&#9881; Servicios de terceros</h2>
-$(To-HtmlTable $nonMsSvcs)
-</section>
-
-<section>
-<h2>&#128198; Tareas programadas</h2>
-$(To-HtmlTable $schedTasks)
-</section>
-
-<section>
-<h2>&#128640; Programas de inicio</h2>
 $(To-HtmlTable $startApps)
-</section>
-
-<section>
-<h2>&#128268; Drivers antiguos</h2>
-<div class="section-sub">Ordenados por fecha - los mas antiguos primero</div>
+$(To-HtmlTable $nonMsSvcs)
+$(To-HtmlTable $schedTasks)
 $(To-HtmlTable $driversInfo)
-</section>
-
-<section>
-<h2>[!] Errores de memoria RAM</h2>
-$(To-HtmlTable $memErrs)
-</section>
-
-<section>
-<h2>&#128680; Eventos criticos (30 dias)</h2>
-$(To-HtmlTable $critEvts)
-</section>
-
-<section>
-<h2>&#128565; Pantallazos azules (BSOD)</h2>
-$(To-HtmlTable $bsodInfo)
-</section>
-
-<section>
-<h2>&#9888; Reinicios inesperados</h2>
-$(To-HtmlTable $shutdownInfo)
-</section>
-
-<section>
-<h2>&#129520; Errores WHEA de hardware</h2>
-$(To-HtmlTable $wheaInfo)
-</section>
-
-<section>
-<h2>&#128190; Errores de disco y controlador</h2>
-$(To-HtmlTable $diskEvtInfo)
-</section>
-
-<section>
-<h2>&#128421; Dispositivos con problemas</h2>
-$(To-HtmlTable $problemDevices)
-</section>
-
-<section>
-<h2>&#128270; Historial PCLAF - Comparativa</h2>
-$(To-HtmlTable @($comparison))
-</section>
-
-<section>
-<h2>&#128302; Fingerprint del equipo</h2>
-<div class="section-sub">Hash unico basado en CPU, MB, RAM, disco y hostname. Detecta cambios de hardware.</div>
-$(To-HtmlTable @($fingerprint))
-</section>
-
-<section>
-<h2>[CD] Aplicaciones instaladas</h2>
 $(To-HtmlTable $instApps)
+</div>
 </section>
 
 <section>
-<h2>&#9989; Marca PCLAF en el equipo</h2>
+<h2>&#127760; Red y conectividad</h2>
+<div class="section-sub">Interfaces de red y puertos abiertos detectados en el momento del diagnostico.</div>
+<div class="stack">
+$(To-HtmlTable $netInfo)
+$(To-HtmlTable $openPorts)
+</div>
+</section>
+
+<section>
+<h2>&#128680; Estabilidad y eventos</h2>
+<div class="section-sub">Eventos criticos, BSOD, reinicios, errores WHEA, memoria y dispositivos con problemas.</div>
+<div class="stack">
+$(To-HtmlTable $memErrs)
+$(To-HtmlTable $critEvts)
+$(To-HtmlTable $bsodInfo)
+$(To-HtmlTable $shutdownInfo)
+$(To-HtmlTable $wheaInfo)
+$(To-HtmlTable $diskEvtInfo)
+$(To-HtmlTable $problemDevices)
+</div>
+</section>
+
+<section>
+<h2>&#128270; Huella y trazabilidad PCLAF</h2>
+<div class="section-sub">Comparativa contra registros previos, huella unica del equipo y marca local de mantenimiento.</div>
+<div class="stack">
+$(To-HtmlTable @($comparison))
+$(To-HtmlTable @($fingerprint))
 $(To-HtmlTable @([PSCustomObject]@{
   Registro_WIndows = if($markOk){"OK - HKCU:\SOFTWARE\PCLAF\Diagnostics"}else{"No se pudo escribir"}
   JSON_Local = if($writeOk){"OK - C:\ProgramData\PCLAF\last.json"}else{"No se pudo escribir"}
@@ -3521,6 +3482,7 @@ $(To-HtmlTable @([PSCustomObject]@{
   SO_Instalado_PCLAF = if($SistemaInstaladoPorPCLAF){"SI"}else{"NO"}
   Prox_Revision = $nextDate
 }))
+</div>
 </section>
 
 "@
