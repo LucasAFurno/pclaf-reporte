@@ -206,15 +206,13 @@ function Invoke-SupabaseReportUpload {
     try {
         $repairFilter = [uri]::EscapeDataString($RepairId)
         $fileFilter = [uri]::EscapeDataString($FileName)
-        $existingUrl = "$base/rest/v1/reportes?reparacion_id=eq.$repairFilter&filename=eq.$fileFilter&select=id&limit=1"
+        $existingUrl = "$base/rest/v1/reportes?reparacion_id=eq.$repairFilter&filename=eq.$fileFilter&select=id"
         $existing = Invoke-RestMethod -Method Get -Uri $existingUrl -Headers $headers
         if ($existing -and $existing.Count -gt 0) {
-            $id = $existing[0].id
-            $patchUrl = "$base/rest/v1/reportes?id=eq.$id"
-            Write-UploadLog -Stage "PATCH" -Message ("Actualizando reporte existente {0}" -f $id)
-            $null = Invoke-RestMethod -Method Patch -Uri $patchUrl -Headers $headers -Body $payload
-            Write-UploadLog -Stage "OK" -Message ("Reporte actualizado en Supabase: {0}" -f $id)
-            return [PSCustomObject]@{ Ok=$true; Message="Reporte actualizado en Supabase"; Id=$id }
+            $ids = @($existing | ForEach-Object { $_.id }) | Where-Object { $_ }
+            $deleteUrl = "$base/rest/v1/reportes?reparacion_id=eq.$repairFilter&filename=eq.$fileFilter"
+            Write-UploadLog -Stage "REPLACE" -Message ("Eliminando {0} reporte(s) previo(s): {1}" -f $ids.Count, ($ids -join ', '))
+            $null = Invoke-RestMethod -Method Delete -Uri $deleteUrl -Headers $headers
         }
 
         $postUrl = "$base/rest/v1/reportes"
