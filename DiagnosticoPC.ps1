@@ -3079,8 +3079,6 @@ $CSS
 <body>
 <div class="wrap">
 
-$(if($thermalOverviewHtml){$thermalOverviewHtml})
-
 <!-- HERO -->
 <div class="hero">
   <div class="hero-grid">
@@ -3148,6 +3146,8 @@ $(if($thermalOverviewHtml){$thermalOverviewHtml})
     <div class="kpi"><div class="kpi-l">Pico termico 5 min</div><div class="kpi-v" style="font-size:14px">CPU $(if($stressInfo.CPU_Pico_C -ne "N/D"){"$($stressInfo.CPU_Pico_C)°C"}else{"N/D"}) / GPU $(if($stressInfo.GPU_Pico_C -ne "N/D"){"$($stressInfo.GPU_Pico_C)°C"}else{"N/D"})</div></div>
   </div>
 </div>
+
+$(if($thermalOverviewHtml){$thermalOverviewHtml})
 
 "@
 
