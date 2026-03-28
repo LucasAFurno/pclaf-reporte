@@ -2894,7 +2894,7 @@ body{
   padding:24px;
   box-shadow:0 24px 60px rgba(0,0,0,.35);
 }
-.hero-grid{display:grid;grid-template-columns:minmax(0,1.16fr) 360px;gap:14px}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}
 .brand{display:flex;align-items:center;gap:16px}
 .brand-logo{
   width:82px;height:82px;border-radius:18px;background:#0d0d0d;
@@ -2912,18 +2912,18 @@ body{
   background:rgba(255,255,255,.025);font-family:var(--mono);font-size:11px;color:var(--text2)
 }
 .kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--red2);box-shadow:0 0 0 5px rgba(204,0,0,.15)}
-.hero h1{margin:16px 0 6px;font-size:34px;line-height:1.02;max-width:none}
+.hero h1{display:none}
 .hero-name{
-  display:inline-flex;align-items:center;gap:10px;margin:0 0 14px;
-  padding:10px 14px;border-radius:18px;border:1px solid rgba(255,255,255,.08);
+  display:inline-flex;align-items:center;gap:10px;margin:8px 0 12px;
+  padding:12px 14px;border-radius:18px;border:1px solid rgba(255,255,255,.08);
   background:linear-gradient(180deg, rgba(204,0,0,.10), rgba(255,255,255,.02));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)
 }
 .hero-name-k{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3)}
-.hero-name-v{font-size:24px;font-weight:900;letter-spacing:.03em;color:#fff}
-.meta{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 20px}
+.hero-name-v{font-size:36px;font-weight:900;letter-spacing:.03em;color:#fff;line-height:1}
+.meta{display:flex;flex-wrap:wrap;gap:10px;margin:0}
 .meta span{padding:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.03);font-size:12px;color:var(--text2)}
-.summary-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.summary-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
 .summary-box{
   border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:14px;background:rgba(255,255,255,.02)
 }
@@ -3979,7 +3979,6 @@ $CSS
         </div>
       </div>
       <div class="kicker">Reporte $($Modo.ToUpper()) • $($env:COMPUTERNAME) • Script v$ScriptVersion</div>
-      <h1>Diagnostico agrupado por pieza</h1>
       <div class="hero-name">
         <div>
           <div class="hero-name-k">Equipo relevado</div>
@@ -3990,11 +3989,6 @@ $CSS
         <span>$(Get-Date -Format "dd/MM/yyyy HH:mm")</span>
         <span>Tecnico: $Tecnico</span>
         <span>Modo: $($Modo.ToUpper())</span>
-      </div>
-      <div class="summary-strip">
-        <div class="summary-box"><div class="summary-k">Sistema operativo</div><div class="summary-v">$(HtmlEnc $osInfo.SO)</div></div>
-        <div class="summary-box"><div class="summary-k">Memoria instalada</div><div class="summary-v">$($sysInfo.RAM_Total_GB) GB</div></div>
-        <div class="summary-box"><div class="summary-k">Revision sugerida</div><div class="summary-v">$nextDate</div></div>
       </div>
     </div>
     <div class="hero-side">
@@ -4018,6 +4012,11 @@ $CSS
         </div>
       </div>
     </div>
+  </div>
+  <div class="summary-strip">
+    <div class="summary-box"><div class="summary-k">Sistema operativo</div><div class="summary-v">$(HtmlEnc $osInfo.SO)</div></div>
+    <div class="summary-box"><div class="summary-k">Memoria instalada</div><div class="summary-v">$($sysInfo.RAM_Total_GB) GB</div></div>
+    <div class="summary-box"><div class="summary-k">Revision sugerida</div><div class="summary-v">$nextDate</div></div>
   </div>
 </div>
 
