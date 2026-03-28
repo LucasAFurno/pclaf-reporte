@@ -289,7 +289,21 @@ function Get-OsInfo {
     $releaseId = "N/D"
     try { $releaseId = if ($cv.DisplayVersion) { $cv.DisplayVersion } elseif ($cv.ReleaseId) { $cv.ReleaseId } else { "N/D" } } catch {}
 
-    $soName = if ($cv -and $cv.ProductName) { "$($cv.ProductName) $($cv.DisplayVersion)".Trim() } elseif ($os -and $os.Caption) { $os.Caption } else { "Windows" }
+    $buildNumber = 0
+    try {
+        $buildRaw = if ($cv.CurrentBuildNumber) { $cv.CurrentBuildNumber } elseif ($cv.CurrentBuild) { $cv.CurrentBuild } elseif ($os.BuildNumber) { $os.BuildNumber } else { 0 }
+        $buildNumber = [int]$buildRaw
+    } catch {}
+
+    $productName = if ($cv -and $cv.ProductName) { [string]$cv.ProductName } elseif ($os -and $os.Caption) { [string]$os.Caption } else { "Windows" }
+    if ($buildNumber -ge 22000 -and $productName -match '^Windows 10\b') {
+        $productName = $productName -replace '^Windows 10\b', 'Windows 11'
+    }
+
+    $soName = "$productName $($cv.DisplayVersion)".Trim()
+    if ([string]::IsNullOrWhiteSpace($soName)) {
+        $soName = if ($os -and $os.Caption) { $os.Caption } else { "Windows" }
+    }
     [PSCustomObject]@{
         Equipo         = $env:COMPUTERNAME
         Usuario        = $env:USERNAME
