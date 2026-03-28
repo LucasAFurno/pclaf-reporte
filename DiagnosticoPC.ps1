@@ -2894,7 +2894,7 @@ body{
   padding:24px;
   box-shadow:0 24px 60px rgba(0,0,0,.35);
 }
-.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;align-items:start}
 .brand{display:flex;align-items:center;gap:16px}
 .brand-logo{
   width:82px;height:82px;border-radius:18px;background:#0d0d0d;
@@ -2906,21 +2906,14 @@ body{
 .brand-title .r{color:var(--red2)}
 .brand-sub{font-family:var(--mono);font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.14em;margin-top:6px}
 .kicker{
-  margin-top:18px;
+  margin-top:14px;
   display:inline-flex;align-items:center;gap:10px;
   padding:7px 12px;border:1px solid rgba(255,255,255,.08);border-radius:999px;
   background:rgba(255,255,255,.025);font-family:var(--mono);font-size:11px;color:var(--text2)
 }
 .kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--red2);box-shadow:0 0 0 5px rgba(204,0,0,.15)}
-.hero h1{display:none}
-.hero-name{
-  display:inline-flex;align-items:center;gap:10px;margin:8px 0 12px;
-  padding:12px 14px;border-radius:18px;border:1px solid rgba(255,255,255,.08);
-  background:linear-gradient(180deg, rgba(204,0,0,.10), rgba(255,255,255,.02));
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)
-}
-.hero-name-k{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3)}
-.hero-name-v{font-size:36px;font-weight:900;letter-spacing:.03em;color:#fff;line-height:1}
+.hero h1{display:block;margin:14px 0 6px;font-size:46px;line-height:.96;max-width:none;color:#fff}
+.hero-subcopy{margin:0 0 12px;color:var(--text2);font-size:14px;line-height:1.55;max-width:720px}
 .meta{display:flex;flex-wrap:wrap;gap:10px;margin:0}
 .meta span{padding:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.03);font-size:12px;color:var(--text2)}
 .summary-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
@@ -2929,9 +2922,9 @@ body{
 }
 .summary-k{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:8px}
 .summary-v{font-size:19px;font-weight:800;line-height:1.15;color:#fff}
-.hero-side{display:grid;gap:16px}
+.hero-side{display:grid;gap:10px}
 .status-card,.mini-board{
-  border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:16px;background:
+  border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:14px;background:
   linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)), #171717
 }
 .status-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
@@ -2952,7 +2945,7 @@ body{
 .light .t1{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.11em}
 .light .t2{font-size:12px;color:#fff;margin-top:4px}
 .mini-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.mini-title{font-size:20px;font-weight:900}
+.mini-title{font-size:18px;font-weight:900}
 .mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .mini-meter{border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:12px;background:rgba(0,0,0,.16)}
 .mini-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
@@ -3979,12 +3972,8 @@ $CSS
         </div>
       </div>
       <div class="kicker">Reporte $($Modo.ToUpper()) • $($env:COMPUTERNAME) • Script v$ScriptVersion</div>
-      <div class="hero-name">
-        <div>
-          <div class="hero-name-k">Equipo relevado</div>
-          <div class="hero-name-v">$(HtmlEnc $env:COMPUTERNAME)</div>
-        </div>
-      </div>
+      <h1>$(HtmlEnc $env:COMPUTERNAME)</h1>
+      <div class="hero-subcopy">Reporte tecnico agrupado por pieza, con foco en temperatura, carga y estado operativo real del equipo.</div>
       <div class="meta">
         <span>$(Get-Date -Format "dd/MM/yyyy HH:mm")</span>
         <span>Tecnico: $Tecnico</span>
