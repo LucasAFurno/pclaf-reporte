@@ -482,6 +482,87 @@ function Get-TemperatureState {
     return "NORMAL"
 }
 
+function Get-PclafScriptRoot {
+    try {
+        if ($PSScriptRoot -and (Test-Path $PSScriptRoot)) {
+            return $PSScriptRoot
+        }
+    } catch {}
+
+    try {
+        $scriptPath = $MyInvocation.MyCommand.Path
+        if ($scriptPath) {
+            $parent = Split-Path -Parent $scriptPath
+            if ($parent -and (Test-Path $parent)) {
+                return $parent
+            }
+        }
+    } catch {}
+
+    return (Get-Location).Path
+}
+
+function Get-PclafRepoToolUrls {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$FileName
+    )
+
+    $encodedName = [Uri]::EscapeDataString($FileName)
+    return @(
+        "https://raw.githubusercontent.com/LucasAFurno/pclaf-reporte/main/tools/$encodedName",
+        "https://cdn.jsdelivr.net/gh/LucasAFurno/pclaf-reporte@main/tools/$encodedName"
+    )
+}
+
+function Initialize-PclafToolFromZip {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ToolName,
+        [Parameter(Mandatory=$true)]
+        [string]$ZipFileName,
+        [Parameter(Mandatory=$true)]
+        [string]$BaseDir,
+        [Parameter(Mandatory=$true)]
+        [string]$ProbePathRelative
+    )
+
+    $probePath = Join-Path $BaseDir $ProbePathRelative
+    if (Test-Path $probePath) {
+        return [PSCustomObject]@{ Ok=$true; ProbePath=$probePath; Source="cache" }
+    }
+
+    try { New-Item -ItemType Directory -Path $BaseDir -Force | Out-Null } catch {}
+
+    $scriptRoot = Get-PclafScriptRoot
+    $localZip = Join-Path $scriptRoot ("tools\" + $ZipFileName)
+    if (Test-Path $localZip) {
+        try {
+            Expand-Archive -Path $localZip -DestinationPath $BaseDir -Force
+            if (Test-Path $probePath) {
+                return [PSCustomObject]@{ Ok=$true; ProbePath=$probePath; Source="repo-local" }
+            }
+        } catch {
+            Write-UploadLog -Stage $ToolName -Message ("No se pudo extraer {0} local: {1}" -f $ZipFileName, $_.Exception.Message)
+        }
+    }
+
+    $tempZip = Join-Path $env:TEMP $ZipFileName
+    foreach ($zipUrl in @(Get-PclafRepoToolUrls -FileName $ZipFileName)) {
+        try {
+            Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing
+            Expand-Archive -Path $tempZip -DestinationPath $BaseDir -Force
+            if (Test-Path $probePath) {
+                return [PSCustomObject]@{ Ok=$true; ProbePath=$probePath; Source=$zipUrl }
+            }
+        } catch {
+            Write-UploadLog -Stage $ToolName -Message ("Fallo fuente {0}: {1}" -f $zipUrl, $_.Exception.Message)
+        }
+    }
+
+    return [PSCustomObject]@{ Ok=$false; ProbePath=$probePath; Source="unavailable" }
+}
+
 function Ensure-LibreHardwareMonitor {
     $version = "0.9.6"
     $baseDir = Join-Path ${env:ProgramData} "PCLAF\tools\LibreHardwareMonitor\$version"
@@ -494,23 +575,12 @@ function Ensure-LibreHardwareMonitor {
         return [PSCustomObject]@{ Ok=$true; BaseDir=$baseDir; DllPath=$dllPath; Source="cache" }
     }
 
-    try { New-Item -ItemType Directory -Path $baseDir -Force | Out-Null } catch {}
-    $zipPath = Join-Path $env:TEMP "LibreHardwareMonitor-$version.zip"
-    $extractDir = Join-Path $env:TEMP "LibreHardwareMonitor-$version-extract"
-    $zipUrl = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v$version/LibreHardwareMonitor.zip"
-
-    try {
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
-        if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue }
-        Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
-        Copy-Item -Path (Join-Path $extractDir '*') -Destination $baseDir -Recurse -Force
-        if (Test-Path $dllPath) {
-            return [PSCustomObject]@{ Ok=$true; BaseDir=$baseDir; DllPath=$dllPath; Source="download" }
-        }
-    } catch {
-        Write-UploadLog -Stage "LHM" -Message ("No se pudo preparar LibreHardwareMonitor: {0}" -f $_.Exception.Message)
+    $prep = Initialize-PclafToolFromZip -ToolName "LHM" -ZipFileName "LibreHardwareMonitor.zip" -BaseDir $baseDir -ProbePathRelative "LibreHardwareMonitorLib.dll"
+    if ($prep.Ok -and (Test-Path $dllPath)) {
+        return [PSCustomObject]@{ Ok=$true; BaseDir=$baseDir; DllPath=$dllPath; Source=$prep.Source }
     }
 
+    Write-UploadLog -Stage "LHM" -Message "No se pudo preparar LibreHardwareMonitor desde cache, repo local ni repo remoto"
     return [PSCustomObject]@{ Ok=$false; BaseDir=$baseDir; DllPath=$dllPath; Source="unavailable" }
 }
 
@@ -529,23 +599,12 @@ function Ensure-StressTheGpu {
         return [PSCustomObject]@{ Ok=$true; ExePath=$exePath; Source="cache"; Note="StressTheGPU listo" }
     }
 
-    try { New-Item -ItemType Directory -Path $baseDir -Force | Out-Null } catch {}
-    $zipPath = Join-Path $env:TEMP "StressTheGPU_x64.zip"
-    $extractDir = Join-Path $env:TEMP "StressTheGPU_extract"
-    $zipUrl = "https://softwareok.com/Download/StressTheGPU_x64.zip"
-
-    try {
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
-        if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue }
-        Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
-        Copy-Item -Path (Join-Path $extractDir '*') -Destination $baseDir -Recurse -Force
-        if (Test-Path $exePath) {
-            return [PSCustomObject]@{ Ok=$true; ExePath=$exePath; Source="download"; Note="StressTheGPU descargado" }
-        }
-    } catch {
-        Write-UploadLog -Stage "GPU" -Message ("No se pudo preparar StressTheGPU: {0}" -f $_.Exception.Message)
+    $prep = Initialize-PclafToolFromZip -ToolName "GPU" -ZipFileName "StressTheGPU_x64.zip" -BaseDir $baseDir -ProbePathRelative "StressTheGPU_x64.exe"
+    if ($prep.Ok -and (Test-Path $exePath)) {
+        return [PSCustomObject]@{ Ok=$true; ExePath=$exePath; Source=$prep.Source; Note="StressTheGPU listo" }
     }
 
+    Write-UploadLog -Stage "GPU" -Message "No se pudo preparar StressTheGPU desde cache, repo local ni repo remoto"
     return [PSCustomObject]@{ Ok=$false; ExePath=$exePath; Source="unavailable"; Note="No se pudo descargar StressTheGPU" }
 }
 
