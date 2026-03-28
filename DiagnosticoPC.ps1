@@ -2466,48 +2466,40 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   font-size:12px;
   line-height:1.6;
 }
-.thermal-table{
-  margin-top:14px;
-  border:1px solid var(--border);
-  border-radius:18px;
-  overflow:hidden;
-  background:rgba(255,255,255,.02);
-}
-.thermal-table-head,.thermal-row{
+.thermal-grid{
   display:grid;
-  grid-template-columns:92px minmax(260px,2.2fr) minmax(130px,.9fr) minmax(150px,1fr) minmax(220px,1.4fr) 120px;
-  gap:12px;
-  align-items:center;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+  margin-top:14px;
 }
-.thermal-table-head{
-  padding:12px 16px;
-  background:rgba(255,255,255,.03);
-  border-bottom:1px solid rgba(255,255,255,.06);
+.thermal-gauge{
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:18px;
+  background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.01));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
 }
-.thermal-head-cell{
-  font-size:10px;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  color:var(--text3);
-  font-family:var(--mono);
+.thermal-gauge.ok{background:linear-gradient(180deg,rgba(34,197,94,.05),rgba(255,255,255,.01))}
+.thermal-gauge.warn{background:linear-gradient(180deg,rgba(245,158,11,.06),rgba(255,255,255,.01))}
+.thermal-gauge.bad{background:linear-gradient(180deg,rgba(239,68,68,.08),rgba(255,255,255,.01))}
+.thermal-gauge.info{background:linear-gradient(180deg,rgba(59,130,246,.06),rgba(255,255,255,.01))}
+.thermal-gauge-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:14px;
 }
-.thermal-row{
-  padding:16px;
-  border-top:1px solid rgba(255,255,255,.05);
-}
-.thermal-row:first-child{border-top:none}
-.thermal-row.ok{background:linear-gradient(90deg,rgba(34,197,94,.05),transparent 18%)}
-.thermal-row.warn{background:linear-gradient(90deg,rgba(245,158,11,.06),transparent 18%)}
-.thermal-row.bad{background:linear-gradient(90deg,rgba(239,68,68,.07),transparent 18%)}
-.thermal-row.info{background:linear-gradient(90deg,rgba(59,130,246,.06),transparent 18%)}
 .thermal-piece{
   font-family:var(--mono);
-  font-size:15px;
+  font-size:12px;
   font-weight:900;
-  letter-spacing:.08em;
-  color:#fff;
+  letter-spacing:.12em;
+  color:var(--text3);
+  text-transform:uppercase;
 }
 .thermal-model{
+  margin-top:6px;
   color:#fff;
   font-size:14px;
   font-weight:800;
@@ -2518,52 +2510,103 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   color:var(--text3);
   font-size:11px;
 }
-.thermal-value{
-  font-size:28px;
+.thermal-gauge-body{
+  display:grid;
+  grid-template-columns:180px 1fr;
+  gap:18px;
+  align-items:center;
+}
+.dial{
+  --angle: 0deg;
+  --dial-color: #22c55e;
+  width:170px;
+  height:170px;
+  border-radius:50%;
+  background:conic-gradient(var(--dial-color) var(--angle), rgba(255,255,255,.08) 0deg);
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 0 0 8px rgba(255,255,255,.02);
+}
+.dial::before{
+  content:'';
+  position:absolute;
+  inset:16px;
+  border-radius:50%;
+  background:radial-gradient(circle at top, rgba(255,255,255,.08), rgba(0,0,0,.15) 38%), #101010;
+  border:1px solid rgba(255,255,255,.06);
+}
+.dial.ok{--dial-color:#22c55e}
+.dial.warn{--dial-color:#f59e0b}
+.dial.bad{--dial-color:#ef4444}
+.dial.info{--dial-color:#60a5fa}
+.dial-inner{
+  position:relative;
+  z-index:1;
+  text-align:center;
+}
+.dial-temp{
+  font-size:32px;
   font-weight:900;
   color:#fff;
   line-height:1;
 }
-.thermal-value.temp.ok{color:var(--green)}
-.thermal-value.temp.warn{color:var(--amber)}
-.thermal-value.temp.bad{color:#ff6b6b}
-.thermal-value.temp.info{color:var(--blue)}
-.thermal-muted{
-  margin-top:5px;
+.dial-unit{
+  margin-top:6px;
+  font-size:11px;
+  color:var(--text3);
+  font-family:var(--mono);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.thermal-meta{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.thermal-meta-card{
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:16px;
+  padding:12px 14px;
+  background:rgba(0,0,0,.18);
+}
+.thermal-meta-label{
+  font-size:10px;
+  color:var(--text3);
+  font-family:var(--mono);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.thermal-meta-value{
+  margin-top:8px;
+  font-size:24px;
+  font-weight:900;
+  color:#fff;
+  line-height:1;
+}
+.thermal-meta-note{
+  margin-top:6px;
   color:var(--text3);
   font-size:11px;
-  text-transform:uppercase;
-  letter-spacing:.06em;
 }
-.thermal-bar{
-  min-width:0;
-}
-.thermal-track{
-  height:12px;
-  border-radius:999px;
-  overflow:hidden;
-  background:#171717;
-  border:1px solid rgba(255,255,255,.06);
-}
-.thermal-fill{
-  height:100%;
-  border-radius:999px;
-  min-width:8px;
-}
-.thermal-fill.ok{background:linear-gradient(90deg,#16a34a,#22c55e)}
-.thermal-fill.warn{background:linear-gradient(90deg,#d97706,#f59e0b)}
-.thermal-fill.bad{background:linear-gradient(90deg,#b91c1c,#ef4444)}
-.thermal-fill.info{background:linear-gradient(90deg,#2563eb,#60a5fa)}
-.thermal-scale{
+.thermal-legend{
   display:flex;
   justify-content:space-between;
-  gap:8px;
-  margin-top:6px;
+  gap:10px;
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+.thermal-legend-text{
+  color:var(--text3);
+  font-size:11px;
+}
+.thermal-legend-scale{
   color:var(--text3);
   font-size:10px;
   font-family:var(--mono);
 }
-.thermal-status{display:flex;justify-content:flex-end}
 .footer{
   margin-top:28px;
   padding:18px 8px 0;
@@ -2579,7 +2622,7 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   .meter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .thermal-table-head,.thermal-row{grid-template-columns:84px minmax(220px,2fr) minmax(110px,.9fr) minmax(120px,1fr) minmax(180px,1.2fr) 100px}
+  .thermal-grid{grid-template-columns:1fr}
 }
 @media (max-width:720px){
   .wrap{padding:14px 10px 28px}
@@ -2594,8 +2637,10 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   h2{padding:16px 14px 12px}
   .section-sub{padding:0 14px 12px}
   .thermal-head{align-items:flex-start;flex-direction:column}
-  .thermal-table{overflow:auto}
-  .thermal-table-head,.thermal-row{min-width:900px}
+  .thermal-gauge-body{grid-template-columns:1fr}
+  .dial{margin:0 auto}
+  .thermal-meta{grid-template-columns:1fr}
+  .thermal-legend{flex-direction:column}
 }
 @media print{
   body{background:#fff;color:#111}
@@ -2792,9 +2837,11 @@ function Get-ThermalOverviewHtml {
         $stateTag = Tag $stateText $tone
 
         $tempNum = 0
+        $tempAngle = 22
         if ([double]::TryParse([string]$row.Celsius, [ref]$tempNum)) {
             $tempVal = ("{0}°C" -f [math]::Round($tempNum, 1))
             $tempPct = [math]::Max(6, [math]::Min(100, [math]::Round($tempNum, 0)))
+            $tempAngle = [math]::Round(([math]::Min(100, $tempPct) / 100) * 360, 0)
         }
 
         $loadNum = 0
@@ -2803,25 +2850,39 @@ function Get-ThermalOverviewHtml {
         }
 
         $rowsHtml += @"
-    <div class='thermal-row $tone'>
-      <div class='thermal-piece'>$(HtmlEnc $row.Zona)</div>
-      <div>
-        <div class='thermal-model'>$(HtmlEnc $row.Modelo)</div>
-        <div class='thermal-subline'>Fuente: $(HtmlEnc ([string]$row.Fuente))</div>
+    <div class='thermal-gauge $tone'>
+      <div class='thermal-gauge-top'>
+        <div>
+          <div class='thermal-piece'>$(HtmlEnc $row.Zona)</div>
+          <div class='thermal-model'>$(HtmlEnc $row.Modelo)</div>
+          <div class='thermal-subline'>Fuente: $(HtmlEnc ([string]$row.Fuente))</div>
+        </div>
+        <div>$stateTag</div>
       </div>
-      <div>
-        <div class='thermal-value'>$(HtmlEnc $loadVal)</div>
-        <div class='thermal-muted'>Carga maxima</div>
+      <div class='thermal-gauge-body'>
+        <div class='dial $tone' style='--angle:${tempAngle}deg'>
+          <div class='dial-inner'>
+            <div class='dial-temp'>$(HtmlEnc $tempVal)</div>
+            <div class='dial-unit'>temperatura</div>
+          </div>
+        </div>
+        <div class='thermal-meta'>
+          <div class='thermal-meta-card'>
+            <div class='thermal-meta-label'>Carga maxima</div>
+            <div class='thermal-meta-value'>$(HtmlEnc $loadVal)</div>
+            <div class='thermal-meta-note'>Carga observada durante el stress</div>
+          </div>
+          <div class='thermal-meta-card'>
+            <div class='thermal-meta-label'>Estado</div>
+            <div class='thermal-meta-value'>$(HtmlEnc $stateText)</div>
+            <div class='thermal-meta-note'>Clasificacion termica de la pieza</div>
+          </div>
+        </div>
       </div>
-      <div>
-        <div class='thermal-value temp $tone'>$(HtmlEnc $tempVal)</div>
-        <div class='thermal-muted'>Temperatura</div>
+      <div class='thermal-legend'>
+        <div class='thermal-legend-text'>Tacometro calibrado de 0°C a 100°C</div>
+        <div class='thermal-legend-scale'>0°C • 60°C • 80°C • 100°C</div>
       </div>
-      <div class='thermal-bar'>
-        <div class='thermal-track'><div class='thermal-fill $tone' style='width:${tempPct}%'></div></div>
-        <div class='thermal-scale'><span>0°C</span><span>60°C</span><span>80°C</span><span>100°C</span></div>
-      </div>
-      <div class='thermal-status'>$stateTag</div>
     </div>
 "@
     }
@@ -2831,19 +2892,11 @@ function Get-ThermalOverviewHtml {
   <div class='thermal-head'>
     <div>
       <div class='thermal-title'>Temperaturas criticas por pieza</div>
-      <div class='thermal-sub'>Picos termicos medidos durante 5 minutos de stress. Cada fila resume pieza, modelo, carga maxima y temperatura maxima.</div>
+      <div class='thermal-sub'>Picos termicos medidos durante 5 minutos de stress. Cada tacometro muestra la temperatura maxima y al costado la carga y el estado de cada pieza.</div>
     </div>
     <div>$(Tag "Stress 5 min" "warn")</div>
   </div>
-  <div class='thermal-table'>
-    <div class='thermal-table-head'>
-      <div class='thermal-head-cell'>Pieza</div>
-      <div class='thermal-head-cell'>Modelo</div>
-      <div class='thermal-head-cell'>Carga</div>
-      <div class='thermal-head-cell'>Temperatura</div>
-      <div class='thermal-head-cell'>Barra</div>
-      <div class='thermal-head-cell'>Estado</div>
-    </div>
+  <div class='thermal-grid'>
     $rowsHtml
   </div>
 </div>
