@@ -549,6 +549,21 @@ function Ensure-StressTheGpu {
     return [PSCustomObject]@{ Ok=$false; ExePath=$exePath; Source="unavailable"; Note="No se pudo descargar StressTheGPU" }
 }
 
+function Prepare-StressTheGpuConfig {
+    param([string]$ExePath)
+
+    if ([string]::IsNullOrWhiteSpace($ExePath) -or -not (Test-Path $ExePath)) { return }
+
+    $iniPath = Join-Path (Split-Path $ExePath) "StressTheGPU.ini"
+    $ini = @(
+        "[OK]"
+        "m_render=4"
+    )
+    try {
+        Set-Content -Path $iniPath -Value $ini -Encoding ASCII
+    } catch {}
+}
+
 function New-LibreHardwareComputer {
     $prep = Ensure-LibreHardwareMonitor
     if (-not $prep.Ok) { return $null }
@@ -704,9 +719,10 @@ function Start-PclafGpuStress {
     if (-not $tool.Ok -or -not (Test-Path $tool.ExePath)) {
         return [PSCustomObject]@{ Processes=@(); Mode="Sin GPU"; Note=$tool.Note }
     }
+    Prepare-StressTheGpuConfig -ExePath $tool.ExePath
     try {
         $p = Start-Process -FilePath $tool.ExePath -WorkingDirectory (Split-Path $tool.ExePath) -PassThru
-        return [PSCustomObject]@{ Processes=@($p); Mode="StressTheGPU"; Note="GPU stress activo con herramienta dedicada" }
+        return [PSCustomObject]@{ Processes=@($p); Mode="StressTheGPU"; Note="GPU stress activo y auto-configurado" }
     } catch {
         return [PSCustomObject]@{ Processes=@(); Mode="Sin GPU"; Note=$_.Exception.Message }
     }
