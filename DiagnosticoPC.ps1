@@ -208,18 +208,20 @@ function Invoke-SupabaseReportUpload {
         $fileFilter = [uri]::EscapeDataString($FileName)
         $existingUrl = "$base/rest/v1/reportes?reparacion_id=eq.$repairFilter&filename=eq.$fileFilter&select=id"
         $existing = Invoke-RestMethod -Method Get -Uri $existingUrl -Headers $headers
-        if ($existing -and $existing.Count -gt 0) {
-            $ids = @($existing | ForEach-Object { $_.id }) | Where-Object { $_ }
-            $deleteUrl = "$base/rest/v1/reportes?reparacion_id=eq.$repairFilter&filename=eq.$fileFilter"
-            Write-UploadLog -Stage "REPLACE" -Message ("Eliminando {0} reporte(s) previo(s): {1}" -f $ids.Count, ($ids -join ', '))
-            $null = Invoke-RestMethod -Method Delete -Uri $deleteUrl -Headers $headers
-        }
-
         $postUrl = "$base/rest/v1/reportes"
         Write-UploadLog -Stage "POST" -Message ("Creando reporte nuevo {0}" -f $FileName)
         $created = Invoke-RestMethod -Method Post -Uri $postUrl -Headers $headers -Body $payload
         $newId = $null
         try { $newId = $created[0].id } catch {}
+        if ($existing -and $existing.Count -gt 0) {
+            $ids = @($existing | ForEach-Object { $_.id }) | Where-Object { $_ -and $_ -ne $newId }
+            if ($ids.Count -gt 0) {
+                $deleteList = ($ids | ForEach-Object { "id=eq.$_" }) -join ','
+                $deleteUrl = "$base/rest/v1/reportes?or=($deleteList)"
+                Write-UploadLog -Stage "CLEANUP" -Message ("Eliminando reporte(s) previo(s): {0}" -f ($ids -join ', '))
+                $null = Invoke-RestMethod -Method Delete -Uri $deleteUrl -Headers $headers
+            }
+        }
         Write-UploadLog -Stage "OK" -Message ("Reporte subido a Supabase: {0}" -f $newId)
         return [PSCustomObject]@{ Ok=$true; Message="Reporte subido a Supabase"; Id=$newId }
     } catch {
