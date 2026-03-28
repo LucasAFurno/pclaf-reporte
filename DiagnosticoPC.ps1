@@ -665,21 +665,18 @@ while(-not (Test-Path $StopFile)){
 function Start-PclafGpuStress {
     param([string]$StopFile)
 
-    try {
-        $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    } catch { $isAdmin = $false }
-    if (-not $isAdmin) {
-        return [PSCustomObject]@{ Processes=@(); Mode="Sin GPU"; Note="WinSAT requiere privilegios de administrador" }
-    }
-
     $gpuScriptPath = Join-Path $env:TEMP "PCLAF_GPU_STRESS.ps1"
     @'
 param([string]$StopFile)
 $ErrorActionPreference = "SilentlyContinue"
 while (-not (Test-Path $StopFile)) {
-  try { & winsat d3d -totalobj 20 -objs 24 -totaltex 10 -texpobj 1 -alushader -noalpha -NoDisp -time 8 > $null 2>&1 } catch {}
+  try {
+    & winsat d3d -totalobj 48 -objs 48 -totaltex 24 -texpobj 8 -batchcnt 1 -texw 10 -texh 10 -alushader -fullscreen -time 8 > $null 2>&1
+  } catch {}
   if (Test-Path $StopFile) { break }
-  try { & winsat dwm -normalw 10 -glassw 4 -time 10 -nodisp > $null 2>&1 } catch {}
+  try {
+    & winsat d3d -totalobj 32 -objs 32 -totaltex 16 -texpobj 4 -texshader -fullscreen -time 8 > $null 2>&1
+  } catch {}
 }
 '@ | Set-Content -Path $gpuScriptPath -Encoding UTF8
 
@@ -687,7 +684,7 @@ while (-not (Test-Path $StopFile)) {
         $p = Start-Process -FilePath "powershell.exe" -ArgumentList @(
             "-NoProfile","-ExecutionPolicy","Bypass","-File",$gpuScriptPath,$StopFile
         ) -WindowStyle Hidden -PassThru
-        return [PSCustomObject]@{ Processes=@($p); Mode="WinSAT D3D/DWM"; Note="GPU stress activo" }
+        return [PSCustomObject]@{ Processes=@($p); Mode="WinSAT D3D fullscreen"; Note="GPU stress activo con escena visible" }
     } catch {
         return [PSCustomObject]@{ Processes=@(); Mode="Sin GPU"; Note=$_.Exception.Message }
     }
