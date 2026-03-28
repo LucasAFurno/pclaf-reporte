@@ -2400,6 +2400,135 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   line-height:1.8;
 }
 .next-msg strong{color:#fff}
+.thermal-overview{
+  margin:0 18px 18px;
+  padding:18px;
+  border-radius:22px;
+  border:1px solid var(--border);
+  background:
+    radial-gradient(circle at top right, rgba(204,0,0,.14), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)),
+    var(--black2);
+}
+.thermal-head{
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px;
+}
+.thermal-title{
+  font-size:19px;
+  font-weight:900;
+  color:#fff;
+}
+.thermal-sub{
+  margin-top:4px;
+  color:var(--text2);
+  font-size:12px;
+  line-height:1.6;
+}
+.thermal-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+.thermal-card{
+  border:1px solid var(--border);
+  border-radius:18px;
+  background:rgba(255,255,255,.02);
+  padding:16px;
+}
+.thermal-card.ok{box-shadow:inset 0 0 0 1px rgba(34,197,94,.08)}
+.thermal-card.warn{box-shadow:inset 0 0 0 1px rgba(245,158,11,.08)}
+.thermal-card.bad{box-shadow:inset 0 0 0 1px rgba(204,0,0,.10)}
+.thermal-card.info{box-shadow:inset 0 0 0 1px rgba(59,130,246,.10)}
+.thermal-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.thermal-zone{
+  font-family:var(--mono);
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--text3);
+}
+.thermal-model{
+  margin-top:6px;
+  color:#fff;
+  font-size:14px;
+  font-weight:800;
+  line-height:1.5;
+}
+.thermal-stats{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin:12px 0;
+}
+.thermal-stat{
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:rgba(0,0,0,.16);
+  padding:10px 12px;
+}
+.thermal-stat-label{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--text3);
+  font-family:var(--mono);
+}
+.thermal-stat-value{
+  margin-top:6px;
+  font-size:20px;
+  font-weight:900;
+  color:#fff;
+}
+.thermal-bar{
+  margin-top:10px;
+}
+.thermal-bar-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.thermal-bar-label{
+  color:var(--text2);
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-family:var(--mono);
+}
+.thermal-track{
+  height:12px;
+  border-radius:999px;
+  overflow:hidden;
+  background:#171717;
+  border:1px solid rgba(255,255,255,.06);
+}
+.thermal-fill{
+  height:100%;
+  border-radius:999px;
+  min-width:8px;
+}
+.thermal-fill.ok{background:linear-gradient(90deg,#16a34a,#22c55e)}
+.thermal-fill.warn{background:linear-gradient(90deg,#d97706,#f59e0b)}
+.thermal-fill.bad{background:linear-gradient(90deg,#b91c1c,#ef4444)}
+.thermal-fill.info{background:linear-gradient(90deg,#2563eb,#60a5fa)}
+.thermal-note{
+  margin-top:10px;
+  color:var(--text3);
+  font-size:11px;
+  line-height:1.6;
+}
 .footer{
   margin-top:28px;
   padding:18px 8px 0;
@@ -2415,6 +2544,7 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   .meter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .thermal-grid{grid-template-columns:1fr}
 }
 @media (max-width:720px){
   .wrap{padding:14px 10px 28px}
@@ -2425,9 +2555,10 @@ tbody tr:hover td{background:rgba(204,0,0,.05)}
   .hero-summary,.traffic,.meter-grid,.kgrid,.cards{grid-template-columns:1fr}
   .next-box{flex-direction:column;align-items:flex-start}
   .tw{width:calc(100% - 20px);margin:0 10px 10px}
-  .resumen-box,.work-box,.next-box{margin:10px}
+  .resumen-box,.work-box,.next-box,.thermal-overview{margin:10px}
   h2{padding:16px 14px 12px}
   .section-sub{padding:0 14px 12px}
+  .thermal-stats{grid-template-columns:1fr}
 }
 @media print{
   body{background:#fff;color:#111}
@@ -2532,6 +2663,147 @@ function Get-MeterCard {
   <div class='meter-note'>$safeHint</div>
 </div>
 "@
+}
+
+function Get-ThermalTone {
+    param(
+        [Parameter(Mandatory=$false)]
+        $Celsius,
+        [string]$Estado = ""
+    )
+
+    $n = 0
+    if ([double]::TryParse([string]$Celsius, [ref]$n)) {
+        if ($n -ge 85) { return "bad" }
+        if ($n -ge 65) { return "warn" }
+        return "ok"
+    }
+
+    if ([string]::IsNullOrWhiteSpace([string]$Celsius) -or [string]$Celsius -eq "N/D") {
+        return "info"
+    }
+
+    switch -Regex ($Estado) {
+        "CRITICO|ALTO" { return "bad" }
+        "ELEVADO|MODERADO" { return "warn" }
+        "SIN SENSOR|N/D" { return "info" }
+        default { return "ok" }
+    }
+}
+
+function Get-ThermalModelForZone {
+    param(
+        [string]$Zona,
+        $SysInfo,
+        $GpuInfo
+    )
+
+    switch -Regex ($Zona) {
+        "^CPU$" { return [string]$SysInfo.CPU }
+        "^GPU$" {
+            $gpu = @($GpuInfo | Where-Object { $_.GPU }) | Select-Object -First 1
+            if ($gpu) { return [string]$gpu.GPU }
+            return "GPU no identificada"
+        }
+        default { return "$Zona - sensor del sistema" }
+    }
+}
+
+function Get-ThermalOverviewHtml {
+    param(
+        $TempInfo,
+        $StressInfo,
+        $SysInfo,
+        $GpuInfo
+    )
+
+    $rows = @()
+    foreach ($item in @($TempInfo)) {
+        if (-not $item) { continue }
+        $zona = [string]$item.Zona
+        if ([string]::IsNullOrWhiteSpace($zona)) { continue }
+        $rows += [PSCustomObject]@{
+            Zona      = $zona
+            Modelo    = Get-ThermalModelForZone -Zona $zona -SysInfo $SysInfo -GpuInfo $GpuInfo
+            Celsius   = $item.Celsius
+            Estado    = $item.Estado
+            Fuente    = $item.Fuente
+            CargaMax  = $item.CargaMax_Pct
+        }
+    }
+
+    if (-not $rows -or @($rows).Count -eq 0) {
+        return ""
+    }
+
+    $priority = @{ CPU = 1; GPU = 2 }
+    $orderedRows = @($rows | Sort-Object @{ Expression = { if ($priority.ContainsKey([string]$_.Zona)) { $priority[[string]$_.Zona] } else { 99 } } }, Zona)
+    $html = @"
+<div class='thermal-overview'>
+  <div class='thermal-head'>
+    <div>
+      <div class='thermal-title'>Temperaturas criticas por pieza</div>
+      <div class='thermal-sub'>Picos termicos medidos durante 5 minutos de stress. Cada bloque muestra modelo, carga maxima y temperatura maxima.</div>
+    </div>
+    <div>$(Tag "Stress 5 min" "warn")</div>
+  </div>
+  <div class='thermal-grid'>
+"@
+
+    foreach ($row in $orderedRows) {
+        $tone = Get-ThermalTone -Celsius $row.Celsius -Estado $row.Estado
+        $tempVal = "N/D"
+        $tempPct = 6
+        $loadVal = "N/D"
+        $stateTag = if ($row.Estado) { StatusTag ([string]$row.Estado) } else { Tag "Sin sensor" "info" }
+
+        $tempNum = 0
+        if ([double]::TryParse([string]$row.Celsius, [ref]$tempNum)) {
+            $tempVal = ("{0}°C" -f [math]::Round($tempNum, 1))
+            $tempPct = [math]::Max(6, [math]::Min(100, [math]::Round($tempNum, 0)))
+        }
+
+        $loadNum = 0
+        if ([double]::TryParse([string]$row.CargaMax, [ref]$loadNum)) {
+            $loadVal = ("{0}%" -f [math]::Round($loadNum, 0))
+        }
+
+        $html += @"
+    <div class='thermal-card $tone'>
+      <div class='thermal-top'>
+        <div>
+          <div class='thermal-zone'>$(HtmlEnc $row.Zona)</div>
+          <div class='thermal-model'>$(HtmlEnc $row.Modelo)</div>
+        </div>
+        <div>$stateTag</div>
+      </div>
+      <div class='thermal-stats'>
+        <div class='thermal-stat'>
+          <div class='thermal-stat-label'>Carga maxima</div>
+          <div class='thermal-stat-value'>$(HtmlEnc $loadVal)</div>
+        </div>
+        <div class='thermal-stat'>
+          <div class='thermal-stat-label'>Temperatura maxima</div>
+          <div class='thermal-stat-value'>$(HtmlEnc $tempVal)</div>
+        </div>
+      </div>
+      <div class='thermal-bar'>
+        <div class='thermal-bar-top'>
+          <div class='thermal-bar-label'>Barra termica</div>
+          <div class='thermal-bar-label'>$(HtmlEnc $tempVal)</div>
+        </div>
+        <div class='thermal-track'><div class='thermal-fill $tone' style='width:${tempPct}%'></div></div>
+      </div>
+      <div class='thermal-note'>Fuente: $(HtmlEnc ([string]$row.Fuente))</div>
+    </div>
+"@
+    }
+
+    $html += @"
+  </div>
+</div>
+"@
+    return $html
 }
 
 function Get-ClientSummary {
@@ -2739,6 +3011,7 @@ $techMeterHtml = (
 ) -join ""
 
 $heroMeterHtml = if ($Modo -eq "tecnico") { $techMeterHtml } else { $clientMeterHtml }
+$thermalOverviewHtml = Get-ThermalOverviewHtml -TempInfo $tempInfo -StressInfo $stressInfo -SysInfo $sysInfo -GpuInfo $gpuInfo
 
 # Logo base64 (favicon/logo real de PCLAF)
 $LogoB64 = "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"
@@ -2761,6 +3034,8 @@ $CSS
 </head>
 <body>
 <div class="wrap">
+
+$(if($thermalOverviewHtml){$thermalOverviewHtml})
 
 <!-- HERO -->
 <div class="hero">
