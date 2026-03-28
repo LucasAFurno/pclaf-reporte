@@ -2996,6 +2996,7 @@ body{
 .gauge-inner{position:relative;z-index:1}
 .gauge-val{font-size:24px;font-weight:900;line-height:1;color:#fff}
 .gauge-unit{margin-top:7px;font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+.gauge-note{margin-top:10px;font-size:11px;line-height:1.45;color:var(--text3);min-height:32px}
 .piece-side{display:grid;gap:12px}
 .piece-text{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:13px 14px;background:rgba(0,0,0,.18);font-size:13px;line-height:1.7;color:var(--text2)}
 .piece-text strong{color:#fff}
@@ -3362,7 +3363,8 @@ function Get-GaugeCardHtml {
         [string]$Value,
         [double]$Percent = 0,
         [string]$Tone = "info",
-        [string]$Unit = ""
+        [string]$Unit = "",
+        [string]$Note = ""
     )
 
     $pct = [math]::Max(0, [math]::Min(100, [math]::Round($Percent, 0)))
@@ -3383,6 +3385,7 @@ function Get-GaugeCardHtml {
       <div class='gauge-unit'>$(HtmlEnc $Unit)</div>
     </div>
   </div>
+  $(if($Note){"<div class='gauge-note'>$(HtmlEnc $Note)</div>"}else{""})
 </div>
 "@
 }
@@ -3505,12 +3508,17 @@ function Get-HardwareDashboardHtml {
     $ramModules = @($ramInfo).Count
     $ramSpeed = Get-PropValue -Object $firstRamStick -Names @("Velocidad_MHz","Speed_MHz","Velocidad","Frecuencia_MHz") -Default "N/D"
     if ($ramSpeed -ne "N/D" -and $ramSpeed -notmatch "MHz") { $ramSpeed = "$ramSpeed MHz" }
+    $ramSlotCountNum = 0
+    [void][double]::TryParse([string]$ramSlots, [ref]$ramSlotCountNum)
+    $ramSlotsPct = if ($ramSlotCountNum -gt 0) { [math]::Min(100, [math]::Round(($ramModules / $ramSlotCountNum) * 100, 0)) } else { 0 }
+    $ramSlotsDisplay = if ($ramSlotCountNum -gt 0) { "$ramModules/$([int]$ramSlotCountNum)" } else { if($ramModules -gt 0){"$ramModules"}else{"N/D"} }
     $diskHealth = if ($mainDisk -and $mainDisk.Estado) { [string]$mainDisk.Estado } else { "N/D" }
     $diskType = Get-PropValue -Object $mainDisk -Names @("Tipo","MediaType","Interface","BusType") -Default "N/D"
     $trimState = Get-PropValue -Object $mainDisk -Names @("TRIM") -Default "N/D"
     if ($trimState -eq "N/D" -and $diskType -match "SSD") { $trimState = "SSD detectado" }
     $diskFree = Get-PropValue -Object $mainVol -Names @("Libre_GB","LibreGB","Free_GB") -Default "N/D"
     if ($diskFree -ne "N/D" -and $diskFree -notmatch "GB") { $diskFree = "$diskFree GB" }
+    $diskFreePct = if ($diskUse -gt 0 -or $diskPctDisplay -ne "N/D") { [math]::Max(0, 100 - $diskUse) } else { 0 }
     $diskModel = Get-PropValue -Object $mainDisk -Names @("Modelo","Model","FriendlyName") -Default "Disco principal no detectado"
     $diskVolume = Get-PropValue -Object $mainVol -Names @("Volumen","Unidad","Drive","Volume") -Default "N/D"
 
@@ -3540,11 +3548,11 @@ function Get-HardwareDashboardHtml {
   </div>
   <div class='piece-layout'>
     <div class='gauges'>
-      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($cpuHasTemp){"$([math]::Round($cpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($cpuHasTemp){$cpuTempNum}else{6}) -Tone $cpuTempTone -Unit "0 a 100 °c")
-      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($cpuLoad,0))%" -Percent $cpuLoad -Tone $cpuLoadTone -Unit "stress 5 min")
+      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($cpuHasTemp){"$([math]::Round($cpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($cpuHasTemp){$cpuTempNum}else{100}) -Tone $cpuTempTone -Unit "0 a 100 °c" -Note $(if($cpuHasTemp){"Pico registrado durante stress"}else{"Sensor CPU no expuesto por hardware o driver"}))
+      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($cpuLoad,0))%" -Percent $cpuLoad -Tone $cpuLoadTone -Unit "stress 5 min" -Note "Carga sostenida observada en la corrida")
     </div>
     <div class='piece-side'>
-      <div class='piece-text'><strong>Lectura tecnica:</strong> el procesador fue exigido durante la corrida fija y este bloque resume plataforma, carga y termica real del CPU. Si la temperatura queda en <strong>N/D</strong>, ese sensor no esta expuesto correctamente por hardware o driver.</div>
+      <div class='piece-text'><strong>Lectura tecnica:</strong> bloque de procesador y plataforma. Resume stress real, arquitectura base y disponibilidad de telemetria termica.</div>
       <div class='stat-grid'>
         <div class='stat'><div class='stat-k'>Motherboard</div><div class='stat-v'>$(HtmlEnc $SysInfo.Motherboard)</div></div>
         <div class='stat'><div class='stat-k'>Nucleos / hilos</div><div class='stat-v'>$($SysInfo.Cores) / $($SysInfo.Hilos)</div></div>
@@ -3568,11 +3576,11 @@ function Get-HardwareDashboardHtml {
   </div>
   <div class='piece-layout'>
     <div class='gauges'>
-      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($gpuHasTemp){"$([math]::Round($gpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($gpuHasTemp){$gpuTempNum}else{0}) -Tone $gpuTempTone -Unit "0 a 100 °c")
-      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($gpuLoad,0))%" -Percent $gpuLoad -Tone $gpuLoadTone -Unit "stress 5 min")
+      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($gpuHasTemp){"$([math]::Round($gpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($gpuHasTemp){$gpuTempNum}else{100}) -Tone $gpuTempTone -Unit "0 a 100 °c" -Note $(if($gpuHasTemp){"Pico real durante stress grafico"}else{"No se obtuvo sensor valido"}))
+      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($gpuLoad,0))%" -Percent $gpuLoad -Tone $gpuLoadTone -Unit "stress 5 min" -Note "Uso maximo observado en la prueba")
     </div>
     <div class='piece-side'>
-      <div class='piece-text'><strong>Lectura tecnica:</strong> este es el bloque clave para validar mantenimiento termico. Resume carga maxima real de video, pico termico y el metodo de stress usado sobre la GPU.</div>
+      <div class='piece-text'><strong>Lectura tecnica:</strong> bloque clave para decidir mantenimiento termico. Concentra carga real, pico de temperatura y el metodo de stress aplicado a video.</div>
       <div class='stat-grid'>
         <div class='stat'><div class='stat-k'>VRAM</div><div class='stat-v'>$(HtmlEnc $gpuVram)</div></div>
         <div class='stat'><div class='stat-k'>Driver</div><div class='stat-v'>$(HtmlEnc $(Get-PropValue -Object $gpu -Names @("DriverVersion","Driver","Version_Driver") -Default "N/D"))</div></div>
@@ -3596,16 +3604,16 @@ function Get-HardwareDashboardHtml {
   </div>
   <div class='piece-layout'>
     <div class='gauges'>
-      $(Get-GaugeCardHtml -Label "Uso actual" -Value "$(if($PerfInfo.RAM_Pct){$PerfInfo.RAM_Pct}else{"N/D"})%" -Percent $ramUse -Tone $ramTone -Unit "0 a 100 %")
-      $(Get-GaugeCardHtml -Label "Capacidad relativa" -Value "$($SysInfo.RAM_Total_GB) GB" -Percent ([math]::Min(100, ([double]$SysInfo.RAM_Total_GB / 32) * 100)) -Tone $ramCapacityTone -Unit "escala 32 gb")
+      $(Get-GaugeCardHtml -Label "Uso actual" -Value "$(if($PerfInfo.RAM_Pct){$PerfInfo.RAM_Pct}else{"N/D"})%" -Percent $ramUse -Tone $ramTone -Unit "0 a 100 %" -Note "Consumo instantaneo de memoria")
+      $(Get-GaugeCardHtml -Label "Slots ocupados" -Value "$ramSlotsDisplay" -Percent $(if($ramSlotsPct -gt 0){$ramSlotsPct}else{100}) -Tone $(if($ramSlotsPct -ge 100){"warn"}elseif($ramSlotsPct -gt 0){"ok"}else{"info"}) -Unit "poblacion" -Note $(if($ramSlotCountNum -gt 0){"Modulos instalados sobre slots fisicos"}else{"No se pudo leer la cantidad de slots"}))
     </div>
     <div class='piece-side'>
-      <div class='piece-text'><strong>Lectura tecnica:</strong> la memoria aparece agrupada una sola vez y resume uso real, capacidad instalada y margen operativo para multitarea.</div>
+      <div class='piece-text'><strong>Lectura tecnica:</strong> bloque de memoria con foco en uso real, configuracion fisica y margen disponible para multitarea.</div>
       <div class='stat-grid'>
         <div class='stat'><div class='stat-k'>Uso medido</div><div class='stat-v'>$(if($PerfInfo.RAM_Usada_GB){"$($PerfInfo.RAM_Usada_GB) GB"}else{"N/D"})<small>Sobre $($SysInfo.RAM_Total_GB) GB detectados.</small></div></div>
         <div class='stat'><div class='stat-k'>Velocidad</div><div class='stat-v'>$(HtmlEnc $ramSpeed)</div></div>
-        <div class='stat'><div class='stat-k'>Slots</div><div class='stat-v'>$(HtmlEnc $ramSlots)</div></div>
-        <div class='stat'><div class='stat-k'>Evaluacion</div><div class='stat-v'>$(if($ramUse -ge 85){"Conviene ampliar o bajar carga"}elseif($ramUse -ge 65){"Uso elevado en este momento"}else{"Margen normal"})<small>Estado general: $(HtmlEnc $FinalStatus.EstadoGeneral)</small></div></div>
+        <div class='stat'><div class='stat-k'>Capacidad instalada</div><div class='stat-v'>$($SysInfo.RAM_Total_GB) GB</div></div>
+        <div class='stat'><div class='stat-k'>Evaluacion</div><div class='stat-v'>$(if($ramUse -ge 85){"Conviene ampliar o bajar carga"}elseif($ramUse -ge 65){"Uso elevado en este momento"}else{"Margen normal"})<small>Slots detectados: $(HtmlEnc $ramSlots)</small></div></div>
       </div>
     </div>
   </div>
@@ -3624,13 +3632,13 @@ function Get-HardwareDashboardHtml {
   </div>
   <div class='piece-layout'>
     <div class='gauges'>
-      $(Get-GaugeCardHtml -Label "Uso del volumen" -Value "$(if($mainVol){$mainVol.Usado_Pct}else{"N/D"})%" -Percent $diskUse -Tone $diskTone -Unit "0 a 100 %")
-      $(Get-GaugeCardHtml -Label "Salud" -Value $(if($diskHealth){"$diskHealth"}else{"N/D"}) -Percent $(if($diskHealth -match "BIEN|OK|SANO|HEALTHY"){100}elseif($diskHealth -match "SIN DATOS|N/D"){55}else{18}) -Tone $diskHealthTone -Unit "smart / salud")
+      $(Get-GaugeCardHtml -Label "Uso del volumen" -Value "$(if($mainVol){$mainVol.Usado_Pct}else{"N/D"})%" -Percent $diskUse -Tone $diskTone -Unit "0 a 100 %" -Note "Ocupacion del volumen mas exigido")
+      $(Get-GaugeCardHtml -Label "Espacio libre" -Value $(if($diskFree -ne "N/D"){$diskFree}else{"N/D"}) -Percent $(if($diskFreePct -gt 0){$diskFreePct}else{100}) -Tone $(if($diskFreePct -le 10){"bad"}elseif($diskFreePct -le 20){"warn"}elseif($diskFreePct -gt 0){"ok"}else{"info"}) -Unit "margen" -Note "Capacidad libre util para trabajo")
     </div>
     <div class='piece-side'>
-      <div class='piece-text'><strong>Lectura tecnica:</strong> el almacenamiento se resume con estado SMART, ocupacion real y datos utiles para decidir si hay riesgo operativo o falta mantenimiento.</div>
+      <div class='piece-text'><strong>Lectura tecnica:</strong> bloque de almacenamiento con ocupacion real, margen libre y salud declarada del disco principal.</div>
       <div class='stat-grid'>
-        <div class='stat'><div class='stat-k'>Espacio libre</div><div class='stat-v'>$(HtmlEnc $diskFree)</div></div>
+        <div class='stat'><div class='stat-k'>Salud SMART</div><div class='stat-v'>$(HtmlEnc $diskHealth)</div></div>
         <div class='stat'><div class='stat-k'>Tipo</div><div class='stat-v'>$(HtmlEnc $diskType)</div></div>
         <div class='stat'><div class='stat-k'>Volumen</div><div class='stat-v'>$(HtmlEnc $diskVolume)</div></div>
         <div class='stat'><div class='stat-k'>TRIM</div><div class='stat-v'>$(HtmlEnc $trimState)</div></div>
