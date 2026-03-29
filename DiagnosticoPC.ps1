@@ -2923,6 +2923,7 @@ body{
 .summary-k{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:8px}
 .summary-v{font-size:19px;font-weight:800;line-height:1.15;color:#fff}
 .hero-side{display:grid;gap:10px}
+.hero-bottom{margin-top:12px}
 .status-card,.mini-board{
   border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:14px;background:
   linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)), #171717
@@ -2977,28 +2978,19 @@ body{
 .piece-title{margin-top:6px;font-size:24px;font-weight:900;color:#fff}
 .piece-model{margin-top:6px;color:var(--text2);font-size:14px;line-height:1.6}
 .piece-layout{display:grid;grid-template-columns:270px 1fr;gap:14px;margin-top:14px}
-.gauges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.gauge-card{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:10px;background:rgba(255,255,255,.02);text-align:center}
-.gauge-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
-.gauge{
-  --deg:0deg;--color:var(--green);
-  width:118px;height:118px;margin:0 auto;border-radius:50%;
-  background:conic-gradient(var(--color) var(--deg), rgba(255,255,255,.08) 0);
-  display:grid;place-items:center;position:relative
-}
-.gauge::before{
-  content:"";position:absolute;inset:10px;border-radius:50%;
-  background:radial-gradient(circle at top, rgba(255,255,255,.09), rgba(0,0,0,.18) 42%), #0f0f0f;
-  border:1px solid rgba(255,255,255,.06)
-}
-.gauge.ok{--color:var(--green)}
-.gauge.warn{--color:var(--amber)}
-.gauge.bad{--color:var(--red2)}
-.gauge.info{--color:var(--blue)}
-.gauge-inner{position:relative;z-index:1}
-.gauge-val{font-size:21px;font-weight:900;line-height:1;color:#fff}
-.gauge-unit{margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
-.gauge-note{margin-top:8px;font-size:10px;line-height:1.35;color:var(--text3);min-height:26px}
+.gauges{display:grid;grid-template-columns:1fr;gap:10px}
+.gauge-card{border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:12px;background:rgba(255,255,255,.02)}
+.gauge-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+.gauge-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-top:8px}
+.gauge-val{font-size:30px;font-weight:900;line-height:1;color:#fff;letter-spacing:-.03em}
+.gauge-unit{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;text-align:right}
+.gauge-track{margin-top:10px;height:12px;border-radius:999px;background:#0a0a0a;border:1px solid rgba(255,255,255,.08);overflow:hidden}
+.gauge-fill{height:100%;border-radius:999px}
+.gauge-fill.ok{background:linear-gradient(90deg,#1bbf63,#4ade80)}
+.gauge-fill.warn{background:linear-gradient(90deg,#d88b00,#fbbf24)}
+.gauge-fill.bad{background:linear-gradient(90deg,#cc0000,#ff5959)}
+.gauge-fill.info{background:linear-gradient(90deg,#2563eb,#60a5fa)}
+.gauge-note{margin-top:8px;font-size:11px;line-height:1.35;color:var(--text3);min-height:30px}
 .piece-side{display:grid;gap:12px}
 .piece-text{border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:11px 12px;background:rgba(0,0,0,.18);font-size:12px;line-height:1.6;color:var(--text2)}
 .piece-text strong{color:#fff}
@@ -3371,7 +3363,6 @@ function Get-GaugeCardHtml {
     )
 
     $pct = [math]::Max(0, [math]::Min(100, [math]::Round($Percent, 0)))
-    $angle = [math]::Round(($pct / 100) * 360, 0)
     $cls = switch ($Tone) {
         "ok" { "ok" }
         "warn" { "warn" }
@@ -3382,12 +3373,11 @@ function Get-GaugeCardHtml {
     return @"
 <div class='gauge-card'>
   <div class='gauge-label'>$(HtmlEnc $Label)</div>
-  <div class='gauge $cls' style='--deg:${angle}deg'>
-    <div class='gauge-inner'>
-      <div class='gauge-val'>$(HtmlEnc $Value)</div>
-      <div class='gauge-unit'>$(HtmlEnc $Unit)</div>
-    </div>
+  <div class='gauge-head'>
+    <div class='gauge-val'>$(HtmlEnc $Value)</div>
+    <div class='gauge-unit'>$(HtmlEnc $Unit)</div>
   </div>
+  <div class='gauge-track'><div class='gauge-fill $cls' style='width:${pct}%'></div></div>
   $(if($Note){"<div class='gauge-note'>$(HtmlEnc $Note)</div>"}else{""})
 </div>
 "@
@@ -3551,16 +3541,16 @@ function Get-HardwareDashboardHtml {
   </div>
   <div class='piece-layout'>
     <div class='gauges'>
-      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($cpuHasTemp){"$([math]::Round($cpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($cpuHasTemp){$cpuTempNum}else{100}) -Tone $cpuTempTone -Unit "0 a 100 °c" -Note $(if($cpuHasTemp){"Pico registrado durante stress"}else{"Sensor CPU no expuesto por hardware o driver"}))
-      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($cpuLoad,0))%" -Percent $cpuLoad -Tone $cpuLoadTone -Unit "stress 5 min" -Note "Carga sostenida observada en la corrida")
+      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($cpuHasTemp){"$([math]::Round($cpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($cpuHasTemp){$cpuTempNum}else{100}) -Tone $cpuTempTone -Unit "0 a 100 °C" -Note $(if($cpuHasTemp){"Temperatura maxima registrada durante la revision."}else{"No fue posible obtener lectura termica directa del procesador en este equipo."}))
+      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($cpuLoad,0))%" -Percent $cpuLoad -Tone $cpuLoadTone -Unit "Carga registrada" -Note "Carga maxima registrada durante la revision.")
     </div>
     <div class='piece-side'>
-      <div class='piece-text'><strong>Lectura tecnica:</strong> bloque de procesador y plataforma. Resume stress real, arquitectura base y disponibilidad de telemetria termica.</div>
+      <div class='piece-text'><strong>Resumen:</strong> bloque del procesador y la plataforma base, con foco en carga observada, configuracion principal y disponibilidad de lectura termica.</div>
       <div class='stat-grid'>
         <div class='stat'><div class='stat-k'>Motherboard</div><div class='stat-v'>$(HtmlEnc $SysInfo.Motherboard)</div></div>
         <div class='stat'><div class='stat-k'>Nucleos / hilos</div><div class='stat-v'>$($SysInfo.Cores) / $($SysInfo.Hilos)</div></div>
         <div class='stat'><div class='stat-k'>Sistema operativo</div><div class='stat-v'>$(HtmlEnc $OsInfo.SO)</div></div>
-        <div class='stat'><div class='stat-k'>Stress</div><div class='stat-v'>$(HtmlEnc $StressInfo.CPU_Stress)<small>Pico de uso observado durante la prueba fija.</small></div></div>
+        <div class='stat'><div class='stat-k'>Comportamiento</div><div class='stat-v'>Carga alta sostenida<small>Pico observado durante la revision.</small></div></div>
       </div>
     </div>
   </div>
@@ -3579,16 +3569,16 @@ function Get-HardwareDashboardHtml {
   </div>
   <div class='piece-layout'>
     <div class='gauges'>
-      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($gpuHasTemp){"$([math]::Round($gpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($gpuHasTemp){$gpuTempNum}else{100}) -Tone $gpuTempTone -Unit "0 a 100 °c" -Note $(if($gpuHasTemp){"Pico real durante stress grafico"}else{"No se obtuvo sensor valido"}))
-      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($gpuLoad,0))%" -Percent $gpuLoad -Tone $gpuLoadTone -Unit "stress 5 min" -Note "Uso maximo observado en la prueba")
+      $(Get-GaugeCardHtml -Label "Temperatura maxima" -Value $(if($gpuHasTemp){"$([math]::Round($gpuTempNum,0))°C"}else{"N/D"}) -Percent $(if($gpuHasTemp){$gpuTempNum}else{100}) -Tone $gpuTempTone -Unit "0 a 100 °C" -Note $(if($gpuHasTemp){"Temperatura maxima registrada durante la revision."}else{"No fue posible obtener una lectura termica valida."}))
+      $(Get-GaugeCardHtml -Label "Carga maxima" -Value "$([math]::Round($gpuLoad,0))%" -Percent $gpuLoad -Tone $gpuLoadTone -Unit "Carga registrada" -Note "Uso maximo registrado durante la revision.")
     </div>
     <div class='piece-side'>
-      <div class='piece-text'><strong>Lectura tecnica:</strong> bloque clave para decidir mantenimiento termico. Concentra carga real, pico de temperatura y el metodo de stress aplicado a video.</div>
+      <div class='piece-text'><strong>Resumen:</strong> bloque grafico con foco en temperatura maxima, nivel de carga alcanzado y condicion termica general de la placa.</div>
       <div class='stat-grid'>
         <div class='stat'><div class='stat-k'>VRAM</div><div class='stat-v'>$(HtmlEnc $gpuVram)</div></div>
         <div class='stat'><div class='stat-k'>Driver</div><div class='stat-v'>$(HtmlEnc $(Get-PropValue -Object $gpu -Names @("DriverVersion","Driver","Version_Driver") -Default "N/D"))</div></div>
-        <div class='stat'><div class='stat-k'>Stress</div><div class='stat-v'>$(HtmlEnc $StressInfo.GPU_Stress)</div></div>
-        <div class='stat'><div class='stat-k'>Accion sugerida</div><div class='stat-v'>$(if($gpuHasTemp -and $gpuTempNum -ge 85){"Revisar pasta y flujo de aire"}elseif($gpuHasTemp -and $gpuTempNum -ge 65){"Controlar suciedad y curva termica"}else{"Sin señal termica critica"})<small>Fuente: $(HtmlEnc $(if($gpuTemp){$gpuTemp.Fuente}else{"N/D"}))</small></div></div>
+        <div class='stat'><div class='stat-k'>Carga grafica</div><div class='stat-v'>$(if($gpuLoad -ge 90){"Alta sostenida"}elseif($gpuLoad -ge 60){"Media alta"}elseif($gpuLoad -gt 0){"Moderada"}else{"Sin dato"})</div></div>
+        <div class='stat'><div class='stat-k'>Accion sugerida</div><div class='stat-v'>$(if($gpuHasTemp -and $gpuTempNum -ge 85){"Revisar pasta y flujo de aire"}elseif($gpuHasTemp -and $gpuTempNum -ge 65){"Controlar suciedad y curva termica"}else{"Sin señal termica critica"})<small>Temperatura de referencia registrada en revision.</small></div></div>
       </div>
     </div>
   </div>
@@ -3607,11 +3597,11 @@ function Get-HardwareDashboardHtml {
   </div>
   <div class='piece-layout'>
     <div class='gauges'>
-      $(Get-GaugeCardHtml -Label "Uso actual" -Value "$(if($PerfInfo.RAM_Pct){$PerfInfo.RAM_Pct}else{"N/D"})%" -Percent $ramUse -Tone $ramTone -Unit "0 a 100 %" -Note "Consumo instantaneo de memoria")
-      $(Get-GaugeCardHtml -Label "Slots ocupados" -Value "$ramSlotsDisplay" -Percent $(if($ramSlotsPct -gt 0){$ramSlotsPct}else{100}) -Tone $(if($ramSlotsPct -ge 100){"warn"}elseif($ramSlotsPct -gt 0){"ok"}else{"info"}) -Unit "poblacion" -Note $(if($ramSlotCountNum -gt 0){"Modulos instalados sobre slots fisicos"}else{"No se pudo leer la cantidad de slots"}))
+      $(Get-GaugeCardHtml -Label "Uso actual" -Value "$(if($PerfInfo.RAM_Pct){$PerfInfo.RAM_Pct}else{"N/D"})%" -Percent $ramUse -Tone $ramTone -Unit "0 a 100 %" -Note "Consumo instantaneo de memoria.")
+      $(Get-GaugeCardHtml -Label "Slots ocupados" -Value "$ramSlotsDisplay" -Percent $(if($ramSlotsPct -gt 0){$ramSlotsPct}else{100}) -Tone $(if($ramSlotsPct -ge 100){"warn"}elseif($ramSlotsPct -gt 0){"ok"}else{"info"}) -Unit "Poblacion" -Note $(if($ramSlotCountNum -gt 0){"Modulos instalados sobre slots fisicos."}else{"No se pudo leer la cantidad de slots."}))
     </div>
     <div class='piece-side'>
-      <div class='piece-text'><strong>Lectura tecnica:</strong> bloque de memoria con foco en uso real, configuracion fisica y margen disponible para multitarea.</div>
+      <div class='piece-text'><strong>Resumen:</strong> bloque de memoria con foco en ocupacion actual, configuracion instalada y margen disponible para trabajo diario.</div>
       <div class='stat-grid'>
         <div class='stat'><div class='stat-k'>Uso medido</div><div class='stat-v'>$(if($PerfInfo.RAM_Usada_GB){"$($PerfInfo.RAM_Usada_GB) GB"}else{"N/D"})<small>Sobre $($SysInfo.RAM_Total_GB) GB detectados.</small></div></div>
         <div class='stat'><div class='stat-k'>Velocidad</div><div class='stat-v'>$(HtmlEnc $ramSpeed)</div></div>
@@ -3635,11 +3625,11 @@ function Get-HardwareDashboardHtml {
   </div>
   <div class='piece-layout'>
     <div class='gauges'>
-      $(Get-GaugeCardHtml -Label "Uso del volumen" -Value "$(if($mainVol){$mainVol.Usado_Pct}else{"N/D"})%" -Percent $diskUse -Tone $diskTone -Unit "0 a 100 %" -Note "Ocupacion del volumen mas exigido")
-      $(Get-GaugeCardHtml -Label "Espacio libre" -Value $(if($diskFree -ne "N/D"){$diskFree}else{"N/D"}) -Percent $(if($diskFreePct -gt 0){$diskFreePct}else{100}) -Tone $(if($diskFreePct -le 10){"bad"}elseif($diskFreePct -le 20){"warn"}elseif($diskFreePct -gt 0){"ok"}else{"info"}) -Unit "margen" -Note "Capacidad libre util para trabajo")
+      $(Get-GaugeCardHtml -Label "Uso del volumen" -Value "$(if($mainVol){$mainVol.Usado_Pct}else{"N/D"})%" -Percent $diskUse -Tone $diskTone -Unit "0 a 100 %" -Note "Ocupacion del volumen principal.")
+      $(Get-GaugeCardHtml -Label "Espacio libre" -Value $(if($diskFree -ne "N/D"){$diskFree}else{"N/D"}) -Percent $(if($diskFreePct -gt 0){$diskFreePct}else{100}) -Tone $(if($diskFreePct -le 10){"bad"}elseif($diskFreePct -le 20){"warn"}elseif($diskFreePct -gt 0){"ok"}else{"info"}) -Unit "Margen" -Note "Capacidad libre util para trabajo.")
     </div>
     <div class='piece-side'>
-      <div class='piece-text'><strong>Lectura tecnica:</strong> bloque de almacenamiento con ocupacion real, margen libre y salud declarada del disco principal.</div>
+      <div class='piece-text'><strong>Resumen:</strong> bloque de almacenamiento con uso actual del volumen, espacio libre disponible y estado general del disco principal.</div>
       <div class='stat-grid'>
         <div class='stat'><div class='stat-k'>Salud SMART</div><div class='stat-v'>$(HtmlEnc $diskHealth)</div></div>
         <div class='stat'><div class='stat-k'>Tipo</div><div class='stat-v'>$(HtmlEnc $diskType)</div></div>
@@ -3655,9 +3645,9 @@ function Get-HardwareDashboardHtml {
 <section class='section'>
   <div class='section-head'>
     <div class='section-title'>Tablero por pieza</div>
-    $(Get-PillHtml -Text "Sin repeticiones" -Tone "warn")
+    $(Get-PillHtml -Text "Vista resumida" -Tone "warn")
   </div>
-  <div class='section-sub'>Cada componente aparece una sola vez. En cada tarjeta vas a ver temperatura, uso, contexto tecnico y los datos que realmente sirven para evaluarlo.</div>
+  <div class='section-sub'>Cada componente se presenta de forma individual con sus indicadores principales y la informacion tecnica relevante de la revision.</div>
   <div class='piece-grid'>
     $cpuCard
     $gpuCard
@@ -3891,7 +3881,7 @@ $heroQuickHtml = (
     (Get-QuickMeterHtml -Label "Temp maxima" -Value $maxStressTempDisplay -Percent $maxStressTemp -Tone $maxStressTempTone)
 )
 $statusTone = if ($finalStatus.EstadoGeneral -match "REVISION|CRITICO|MAL") { "bad" } elseif ($finalStatus.EstadoGeneral -match "OBSERVACIONES|USABLE") { "warn" } else { "ok" }
-$statusCopy = if (-not [string]::IsNullOrWhiteSpace([string]$finalStatus.Motivos)) { [string]$finalStatus.Motivos } else { "El equipo fue revisado por PCLAF y este tablero resume el estado real por pieza, con stress fijo de 5 minutos para CPU y GPU." }
+$statusCopy = if (-not [string]::IsNullOrWhiteSpace([string]$finalStatus.Motivos)) { [string]$finalStatus.Motivos } else { "El equipo fue revisado por PCLAF y este tablero resume el estado general de los componentes principales y sus lecturas mas relevantes." }
 $lightsHtml = (
     (Get-LightHtml -Label "Hardware" -Value $(if($hwAge.Equipo_Msg){$hwAge.Equipo_Msg}else{$hwAge.Equipo_Estado}) -Tone $(if($hwAge.Equipo_Estado -match "VIGENTE|ACTUAL"){ "ok" } elseif($hwAge.Equipo_Estado -match "USABLE"){ "warn" } else { "bad" })) +
     (Get-LightHtml -Label "Discos" -Value $(if($heroMainDisk){$heroMainDisk.Estado}else{"N/D"}) -Tone $(if($heroMainDisk -and $heroMainDisk.Estado -match "BIEN|OK|HEALTHY"){ "ok" } elseif($heroMainDisk -and $heroMainDisk.Estado -match "SIN DATOS|N/D"){ "warn" } else { "bad" })) +
@@ -3939,10 +3929,10 @@ $eventsRows = @(
     (New-ClusterRow "Dispositivos con problemas" "$( @($problemDevices).Count )")
 )
 $clustersHtml = @(
-    (Get-ClusterHtml -Title "Plataforma y video" -Subtitle "Informacion estructural del equipo, video y contexto del stress." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterPlatformRows) + (To-HtmlTable ($gpuInfo | Select-Object -First 1)))),
-    (Get-ClusterHtml -Title "Memoria y rendimiento" -Subtitle "Uso real, procesos pesados y lectura de memoria sin repetir paneles." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterPerfRows) + $topProcessesTable)),
-    (Get-ClusterHtml -Title "Almacenamiento y mantenimiento" -Subtitle "Discos, espacio y mantenimiento recomendado." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterDiskRows) + (To-HtmlTable ($diskInfo | Select-Object Modelo,Estado,Salud,SMART -First 5)))),
-    (Get-ClusterHtml -Title "Seguridad, eventos y trazabilidad" -Subtitle "Estado de seguridad y hechos recientes que justifican el estado general." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterSecurityRows) + (To-HtmlTable $eventsRows)))
+    (Get-ClusterHtml -Title "Plataforma y video" -Subtitle "Informacion estructural del equipo y de la placa de video." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterPlatformRows) + (To-HtmlTable ($gpuInfo | Select-Object -First 1)))),
+    (Get-ClusterHtml -Title "Memoria y rendimiento" -Subtitle "Uso actual de recursos y procesos destacados durante la revision." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterPerfRows) + $topProcessesTable)),
+    (Get-ClusterHtml -Title "Almacenamiento y mantenimiento" -Subtitle "Estado del almacenamiento, espacio disponible y seguimiento recomendado." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterDiskRows) + (To-HtmlTable ($diskInfo | Select-Object Modelo,Estado,Salud,SMART -First 5)))),
+    (Get-ClusterHtml -Title "Seguridad, eventos y trazabilidad" -Subtitle "Proteccion activa del sistema y eventos relevantes de estabilidad." -Tone "warn" -BodyHtml ((To-HtmlTable $clusterSecurityRows) + (To-HtmlTable $eventsRows)))
 ) -join ""
 
 # Logo base64 (favicon/logo real de PCLAF)
@@ -3971,9 +3961,9 @@ $CSS
           <div class="brand-sub">Servicio tecnico • Floresta, CABA • pclaf.com.ar</div>
         </div>
       </div>
-      <div class="kicker">Reporte $($Modo.ToUpper()) • $($env:COMPUTERNAME) • Script v$ScriptVersion</div>
+      <div class="kicker">Reporte $($Modo.ToUpper()) • $($env:COMPUTERNAME)</div>
       <h1>$(HtmlEnc $env:COMPUTERNAME)</h1>
-      <div class="hero-subcopy">Reporte tecnico agrupado por pieza, con foco en temperatura, carga y estado operativo real del equipo.</div>
+      <div class="hero-subcopy">Resumen tecnico del equipo con estado general, temperaturas registradas, carga observada y componentes principales relevados durante la revision.</div>
       <div class="meta">
         <span>$(Get-Date -Format "dd/MM/yyyy HH:mm")</span>
         <span>Tecnico: $Tecnico</span>
@@ -3991,14 +3981,16 @@ $CSS
           $lightsHtml
         </div>
       </div>
-      <div class="mini-board">
-        <div class="mini-head">
-          <div class="mini-title">Panel rapido</div>
-          $(Get-PillHtml -Text "Stress 5 min" -Tone $(if($Modo -eq "tecnico"){"bad"}else{"warn"}))
-        </div>
-        <div class="mini-grid">
-          $heroQuickHtml
-        </div>
+    </div>
+  </div>
+  <div class="hero-bottom">
+    <div class="mini-board">
+      <div class="mini-head">
+        <div class="mini-title">Panel rapido</div>
+        $(Get-PillHtml -Text "Revision termica" -Tone $(if($Modo -eq "tecnico"){"bad"}else{"warn"}))
+      </div>
+      <div class="mini-grid">
+        $heroQuickHtml
       </div>
     </div>
   </div>
@@ -4051,13 +4043,13 @@ if ($Modo -eq "tecnico") {
     <div class='section-title'>Clusters tecnicos</div>
     $(Get-PillHtml -Text "Agrupado" -Tone "warn")
   </div>
-  <div class='section-sub'>El resto del reporte tambien queda separado por dominios, pero sin repetir otra vez CPU, GPU, RAM y disco como tablas sueltas por todos lados.</div>
+  <div class='section-sub'>Informacion complementaria del equipo agrupada por areas para facilitar la lectura tecnica.</div>
   <div class='cluster-grid'>
     $clustersHtml
   </div>
   <div class='maintenance'>
     <div class='maintenance-date'>$nextDate</div>
-    <div class='maintenance-copy'><strong>Mantenimiento preventivo recomendado.</strong><br>La observacion principal de este reporte es $(HtmlEnc $finalStatus.EstadoGeneral.ToLower()) y este tablero ya deja resumido por pieza lo que conviene revisar primero en taller.</div>
+    <div class='maintenance-copy'><strong>Mantenimiento preventivo recomendado.</strong><br>La observacion principal de este reporte es $(HtmlEnc $finalStatus.EstadoGeneral.ToLower()) y el tablero deja resumidos los puntos principales a revisar en el equipo.</div>
   </div>
 </section>
 "@
